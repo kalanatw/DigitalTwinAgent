@@ -1,0 +1,360 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto p-4 md:p-6" x-data="chatApp()">
+    <!-- Header Section with iOS 17 Styling -->
+    <div class="bg-white/95 backdrop-blur-lg rounded-3xl shadow-lg p-6 mb-6 border border-gray-100">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h2 class="text-3xl font-semibold text-gray-900 mb-2 tracking-tight">Digital Twin Assistant</h2>
+                <p class="text-gray-600 text-lg">Ask me about sensor data, system status, or digital twin concepts</p>
+            </div>
+            <div class="flex space-x-3">
+                <button @click="clearChat()" 
+                        class="bg-red-50 hover:bg-red-100 text-red-600 px-5 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-sm">
+                    <i class="fas fa-trash mr-2"></i>Clear Chat
+                </button>
+                <button @click="getSensorData()" 
+                        class="bg-green-50 hover:bg-green-100 text-green-600 px-5 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-sm">
+                    <i class="fas fa-thermometer-half mr-2"></i>Get Sensor Data
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Container with iOS 17 Design -->
+    <div class="bg-white/95 backdrop-blur-lg rounded-3xl shadow-xl h-[500px] md:h-[600px] flex flex-col border border-gray-100 overflow-hidden">
+        <!-- Messages Area -->
+        <div class="flex-1 overflow-y-auto p-6 chat-container" x-ref="chatContainer">
+            <template x-for="message in messages" :key="message.id">
+                <div class="mb-6" :class="message.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
+                    <div class="max-w-[80%] md:max-w-md"
+                         :class="message.role === 'user' 
+                                 ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-3xl rounded-br-lg' 
+                                 : 'bg-gray-100 text-gray-800 rounded-3xl rounded-bl-lg'">
+                        <div class="px-5 py-4">
+                            <div class="flex items-start">
+                                <div x-show="message.role === 'assistant'" class="mr-3 mt-1">
+                                    <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+                                        <i class="fas fa-robot text-white text-sm"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-1">
+                                    <p x-text="message.content" class="whitespace-pre-wrap leading-relaxed"></p>
+                                    <div x-show="message.tools_used && message.tools_used.length > 0" 
+                                         class="text-xs mt-3 opacity-75 flex items-center">
+                                        <i class="fas fa-tools mr-1"></i>
+                                        <span>Tools: <span x-text="message.tools_used.join(', ')"></span></span>
+                                    </div>
+                                </div>
+                                <div x-show="message.role === 'user'" class="ml-3 mt-1">
+                                    <div class="w-8 h-8 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full flex items-center justify-center">
+                                        <i class="fas fa-user text-white text-sm"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-xs mt-2 opacity-60" 
+                                 :class="message.role === 'user' ? 'text-right' : 'text-left'"
+                                 x-text="formatTime(message.timestamp)"></div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+            
+            <!-- Typing Indicator with Enhanced Animation -->
+            <div x-show="isTyping" class="mb-6 flex justify-start">
+                <div class="bg-gray-100 rounded-3xl rounded-bl-lg px-5 py-4 shadow-sm">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mr-3">
+                            <i class="fas fa-robot text-white text-sm"></i>
+                        </div>
+                        <div class="typing-indicator">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area with iOS 17 Design -->
+        <div class="border-t border-gray-100 p-6 bg-gray-50/80 backdrop-blur-sm">
+            <div class="flex space-x-4">
+                <div class="flex-1 relative">
+                    <input type="text" 
+                           x-model="currentMessage" 
+                           @keydown.enter="sendMessage()"
+                           placeholder="Ask about sensor data, system status, or digital twin concepts..."
+                           class="w-full border-0 bg-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500/30 shadow-sm text-gray-900 placeholder-gray-500 transition-all duration-200"
+                           :disabled="isTyping">
+                    <div x-show="isTyping" class="absolute right-4 top-1/2 transform -translate-y-1/2">
+                        <div class="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+                    </div>
+                </div>
+                <button @click="sendMessage()" 
+                        :disabled="isTyping || !currentMessage.trim()"
+                        class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-gray-300 disabled:to-gray-400 text-white p-4 rounded-2xl transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-lg disabled:transform-none disabled:shadow-sm">
+                    <i class="fas fa-paper-plane text-lg" :class="{ 'animate-pulse': isTyping }"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions with iOS 17 Cards -->
+    <div class="mt-6 bg-white/95 backdrop-blur-lg rounded-3xl shadow-lg p-6 border border-gray-100">
+        <h3 class="text-xl font-semibold mb-6 text-gray-900">Quick Actions</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button @click="quickMessage('Show me all sensor data from the main facility')"
+                    class="group bg-blue-50 hover:bg-blue-100 text-blue-700 px-6 py-5 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 hover:shadow-lg border border-blue-200">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-thermometer-half text-2xl group-hover:scale-110 transition-transform duration-200"></i>
+                </div>
+                <div class="font-medium">All Sensor Data</div>
+            </button>
+            <button @click="quickMessage('What is the current system status?')"
+                    class="group bg-green-50 hover:bg-green-100 text-green-700 px-6 py-5 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 hover:shadow-lg border border-green-200">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-cogs text-2xl group-hover:scale-110 transition-transform duration-200"></i>
+                </div>
+                <div class="font-medium">System Status</div>
+            </button>
+            <button @click="quickMessage('Explain what a digital twin is and its benefits')"
+                    class="group bg-purple-50 hover:bg-purple-100 text-purple-700 px-6 py-5 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 hover:shadow-lg border border-purple-200">
+                <div class="flex items-center justify-center mb-2">
+                    <i class="fas fa-question-circle text-2xl group-hover:scale-110 transition-transform duration-200"></i>
+                </div>
+                <div class="font-medium">About Digital Twins</div>
+            </button>
+        </div>
+    </div>
+
+    <!-- Status Indicator with iOS 17 Design -->
+    <div class="fixed bottom-6 right-6 z-50">
+        <div class="bg-white/95 backdrop-blur-lg rounded-2xl shadow-xl p-4 border border-gray-200">
+            <div class="flex items-center space-x-3">
+                <div class="relative">
+                    <div :class="isConnected ? 'bg-green-500' : 'bg-red-500'" 
+                         class="w-3 h-3 rounded-full"></div>
+                    <div :class="isConnected ? 'bg-green-500' : 'bg-red-500'" 
+                         class="absolute top-0 left-0 w-3 h-3 rounded-full animate-ping opacity-75"></div>
+                </div>
+                <span class="text-sm font-medium text-gray-700" x-text="isConnected ? 'Connected' : 'Disconnected'"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function chatApp() {
+    return {
+        // State variables
+        messages: [],
+        currentMessage: '',
+        isTyping: false,
+        isConnected: true,
+        sessionId: '',
+
+        // Initialize the component
+        init() {
+            // Generate session ID first
+            this.sessionId = this.getStoredSessionId() || this.generateSessionId();
+            // Load conversation history if available
+            this.loadHistory();
+            // Check connection status
+            this.checkConnection();
+        },
+
+        // Get stored session ID from localStorage
+        getStoredSessionId() {
+            try {
+                return localStorage.getItem('sessionId');
+            } catch (error) {
+                console.warn('LocalStorage not available:', error);
+                return null;
+            }
+        },
+
+        // Generate new session ID
+        generateSessionId() {
+            const sessionId = 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+            try {
+                localStorage.setItem('sessionId', sessionId);
+            } catch (error) {
+                console.warn('Could not save session ID to localStorage:', error);
+            }
+            return sessionId;
+        },
+
+        // Send message to the chat API
+        async sendMessage() {
+            if (!this.currentMessage.trim() || this.isTyping) return;
+
+            const message = this.currentMessage.trim();
+            this.currentMessage = '';
+
+            // Add user message immediately
+            this.addMessage('user', message);
+            this.isTyping = true;
+            this.scrollToBottom();
+
+            try {
+                const response = await fetch('/api/chat/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        session_id: this.sessionId
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    this.addMessage('assistant', data.response, data.metadata?.tools_used || []);
+                    this.isConnected = true;
+                } else {
+                    this.addMessage('assistant', `Sorry, I encountered an error: ${data.message || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Chat error:', error);
+                this.addMessage('assistant', 'Sorry, I cannot connect to the server right now. Please check your connection and try again.');
+                this.isConnected = false;
+            } finally {
+                this.isTyping = false;
+                this.scrollToBottom();
+            }
+        },
+
+        // Send quick message
+        quickMessage(message) {
+            this.currentMessage = message;
+            this.sendMessage();
+        },
+
+        // Add message to the conversation
+        addMessage(role, content, tools_used = []) {
+            const message = {
+                id: Date.now() + Math.random(),
+                role: role,
+                content: content,
+                tools_used: tools_used || [],
+                timestamp: new Date()
+            };
+            
+            this.messages.push(message);
+            
+            // Auto-scroll to bottom after DOM update
+            this.$nextTick(() => {
+                this.scrollToBottom();
+            });
+        },
+
+        // Clear chat history
+        async clearChat() {
+            if (confirm('Are you sure you want to clear the chat history?')) {
+                this.messages = [];
+                
+                // Clear server-side history
+                try {
+                    await fetch(`/api/sessions/${this.sessionId}/`, { 
+                        method: 'DELETE',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                        }
+                    });
+                } catch (error) {
+                    console.warn('Could not clear server-side history:', error);
+                }
+                
+                // Generate new session
+                this.sessionId = this.generateSessionId();
+            }
+        },
+
+        // Get sensor data via quick message
+        async getSensorData() {
+            this.quickMessage('Show me the current sensor readings for all locations');
+        },
+
+        // Scroll to bottom of chat
+        scrollToBottom() {
+            try {
+                const container = this.$refs.chatContainer;
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            } catch (error) {
+                console.warn('Could not scroll to bottom:', error);
+            }
+        },
+
+        // Format timestamp
+        formatTime(timestamp) {
+            try {
+                const date = new Date(timestamp);
+                return date.toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: true 
+                });
+            } catch (error) {
+                return 'Invalid time';
+            }
+        },
+
+        // Load conversation history
+        async loadHistory() {
+            try {
+                const response = await fetch(`/api/sessions/${this.sessionId}/history/`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.messages && Array.isArray(data.messages)) {
+                        this.messages = data.messages.map(msg => ({
+                            ...msg,
+                            timestamp: new Date(msg.timestamp)
+                        }));
+                        this.$nextTick(() => {
+                            this.scrollToBottom();
+                        });
+                    }
+                }
+            } catch (error) {
+                console.warn('Could not load conversation history:', error);
+            }
+        },
+
+        // Check connection status
+        async checkConnection() {
+            try {
+                const response = await fetch('/health/', {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                });
+                this.isConnected = response.ok;
+            } catch (error) {
+                this.isConnected = false;
+                console.warn('Connection check failed:', error);
+            }
+            
+            // Check connection every 30 seconds
+            setTimeout(() => this.checkConnection(), 30000);
+        }
+    }
+}
+</script>
+{% endblock %}

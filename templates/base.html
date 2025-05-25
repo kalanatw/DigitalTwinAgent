@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Digital Twin Assistant{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        /* iOS 17 Inspired Styles */
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        /* Glass morphism effect */
+        .glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Enhanced scrollbar with iOS styling */
+        .chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .chat-container::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 10px;
+        }
+        .chat-container::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+        .chat-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.3);
+            background-clip: content-box;
+        }
+        
+        /* Enhanced typing animation */
+        .typing-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+        .typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        .typing-indicator span:nth-child(1) {
+            animation-delay: 0s;
+        }
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.4;
+            }
+            30% {
+                transform: translateY(-12px);
+                opacity: 1;
+            }
+        }
+        
+        /* Smooth entrance animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .animate-fade-in-up {
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        /* Button hover effects */
+        .btn-hover {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .btn-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .btn-hover:active {
+            transform: translateY(0);
+            transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Custom focus styles */
+        .focus-ring:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+        }
+        
+        /* Message animation */
+        .message-slide-in {
+            animation: slideInMessage 0.4s ease-out;
+        }
+        
+        @keyframes slideInMessage {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Navigation with Glass Effect -->
+    <nav class="glass sticky top-0 z-40 border-b border-white/20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-xl font-semibold text-white flex items-center">
+                            <div class="w-8 h-8 bg-gradient-to-br from-white to-white/80 rounded-full flex items-center justify-center mr-3">
+                                <i class="fas fa-cogs text-indigo-600 text-sm"></i>
+                            </div>
+                            Digital Twin Assistant
+                        </h1>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/" class="text-white/80 hover:text-white px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/10">
+                        <i class="fas fa-home mr-2"></i>Home
+                    </a>
+                    <a href="/about/" class="text-white/80 hover:text-white px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/10">
+                        <i class="fas fa-info-circle mr-2"></i>About
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+            <main class="animate-fade-in-up">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- Footer with Glass Effect -->
+    <footer class="glass border-t border-white/20 text-white py-12 mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="space-y-4">
+                    <h3 class="text-xl font-semibold">Digital Twin Assistant</h3>
+                    <p class="text-white/80 leading-relaxed">Advanced AI-powered digital twin monitoring and analysis platform with real-time insights.</p>
+                </div>
+                <div class="space-y-4">
+                    <h3 class="text-xl font-semibold">Features</h3>
+                    <ul class="text-white/80 space-y-3">
+                        <li class="flex items-center">
+                            <i class="fas fa-thermometer-half mr-3 text-blue-300"></i>
+                            Real-time Sensor Monitoring
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-chart-line mr-3 text-green-300"></i>
+                            System Status Analysis
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-robot mr-3 text-purple-300"></i>
+                            AI-Powered Insights
+                        </li>
+                    </ul>
+                </div>
+                <div class="space-y-4">
+                    <h3 class="text-xl font-semibold">Technology Stack</h3>
+                    <ul class="text-white/80 space-y-3">
+                        <li class="flex items-center">
+                            <i class="fab fa-python mr-3 text-yellow-300"></i>
+                            Django & FastAPI
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-brain mr-3 text-pink-300"></i>
+                            OpenAI Agents SDK
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-database mr-3 text-red-300"></i>
+                            Redis Cache
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-white/20 mt-12 pt-8 text-center">
+                <p class="text-white/60">
+                    &copy; 2025 Digital Twin Assistant. Built with 
+                    <span class="text-red-300">❤️</span> using OpenAI Agents SDK.
+                </p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

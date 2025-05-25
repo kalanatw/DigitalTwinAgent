@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+
+{% block title %}About - Digital Twin Assistant{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto p-6">
+    <!-- Hero Section -->
+    <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-lg p-8 mb-8">
+        <h1 class="text-4xl font-bold mb-4">About Digital Twin Assistant</h1>
+        <p class="text-xl">An advanced AI-powered platform for monitoring and interacting with digital twin systems using the OpenAI Agents SDK.</p>
+    </div>
+
+    <!-- Features Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center mb-4">
+                <i class="fas fa-robot text-blue-500 text-2xl mr-3"></i>
+                <h3 class="text-xl font-semibold">AI-Powered Agent</h3>
+            </div>
+            <p class="text-gray-600">Utilizes OpenAI's Agents SDK to provide intelligent conversations about digital twin systems with contextual understanding.</p>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center mb-4">
+                <i class="fas fa-thermometer-half text-red-500 text-2xl mr-3"></i>
+                <h3 class="text-xl font-semibold">Real-time Sensor Data</h3>
+            </div>
+            <p class="text-gray-600">Access to comprehensive sensor data including temperature, pressure, humidity, vibration, and power consumption.</p>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center mb-4">
+                <i class="fas fa-cogs text-green-500 text-2xl mr-3"></i>
+                <h3 class="text-xl font-semibold">System Monitoring</h3>
+            </div>
+            <p class="text-gray-600">Monitor motors, pumps, controllers, and network components with detailed status information and diagnostics.</p>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center mb-4">
+                <i class="fas fa-database text-purple-500 text-2xl mr-3"></i>
+                <h3 class="text-xl font-semibold">Redis Cache</h3>
+            </div>
+            <p class="text-gray-600">High-performance caching with Redis for faster response times and improved user experience.</p>
+        </div>
+    </div>
+
+    <!-- Technology Stack -->
+    <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+        <h2 class="text-2xl font-bold mb-6">Technology Stack</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="text-center">
+                <i class="fab fa-python text-4xl text-blue-500 mb-3"></i>
+                <h4 class="font-semibold">Backend</h4>
+                <ul class="text-gray-600 mt-2 space-y-1">
+                    <li>Django Framework</li>
+                    <li>FastAPI Integration</li>
+                    <li>OpenAI Agents SDK</li>
+                </ul>
+            </div>
+            <div class="text-center">
+                <i class="fas fa-database text-4xl text-green-500 mb-3"></i>
+                <h4 class="font-semibold">Data & Cache</h4>
+                <ul class="text-gray-600 mt-2 space-y-1">
+                    <li>Redis Cache</li>
+                    <li>SQLite Database</li>
+                    <li>Session Management</li>
+                </ul>
+            </div>
+            <div class="text-center">
+                <i class="fas fa-palette text-4xl text-purple-500 mb-3"></i>
+                <h4 class="font-semibold">Frontend</h4>
+                <ul class="text-gray-600 mt-2 space-y-1">
+                    <li>Tailwind CSS</li>
+                    <li>Alpine.js</li>
+                    <li>Responsive Design</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Digital Twin Concepts -->
+    <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+        <h2 class="text-2xl font-bold mb-6">What is a Digital Twin?</h2>
+        <div class="prose max-w-none">
+            <p class="text-gray-600 mb-4">
+                A digital twin is a virtual representation of a physical object, process, or system that can be used for various purposes including monitoring, analysis, and optimization. Our Digital Twin Assistant helps you:
+            </p>
+            <ul class="text-gray-600 space-y-2 mb-4">
+                <li><strong>Monitor:</strong> Real-time sensor data and system status</li>
+                <li><strong>Analyze:</strong> Historical trends and performance metrics</li>
+                <li><strong>Predict:</strong> Potential issues and maintenance needs</li>
+                <li><strong>Optimize:</strong> System performance and efficiency</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- API Documentation -->
+    <div class="bg-white rounded-lg shadow-md p-8">
+        <h2 class="text-2xl font-bold mb-6">API Endpoints</h2>
+        <div class="space-y-4">
+            <div class="border-l-4 border-blue-500 pl-4">
+                <h4 class="font-semibold">POST /api/chat/</h4>
+                <p class="text-gray-600">Send a message to the Digital Twin Assistant</p>
+            </div>
+            <div class="border-l-4 border-green-500 pl-4">
+                <h4 class="font-semibold">GET /tools/sensor-data</h4>
+                <p class="text-gray-600">Retrieve sensor data directly</p>
+            </div>
+            <div class="border-l-4 border-purple-500 pl-4">
+                <h4 class="font-semibold">GET /tools/system-status</h4>
+                <p class="text-gray-600">Get system component status</p>
+            </div>
+            <div class="border-l-4 border-red-500 pl-4">
+                <h4 class="font-semibold">GET /health</h4>
+                <p class="text-gray-600">Health check endpoint</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

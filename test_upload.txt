@@ -1,0 +1,10 @@
+This is a test document for uploading to the Digital Twin document management system.
+
+The document contains information about:
+- AI-powered semantic search capabilities
+- Document processing and chunking
+- OpenAI embedding generation
+- Twin version management
+- Digital Twin chatbot integration
+
+This content will be processed and made searchable through the semantic search feature.

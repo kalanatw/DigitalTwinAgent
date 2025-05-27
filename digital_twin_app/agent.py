@@ -126,6 +126,107 @@ class DigitalTwinAgent:
                 "status": "error",
                 "error": str(e)
             }
+
+    async def process_message_with_documents(self, message: str, session_id: str, twin_version_id: str) -> Dict[str, Any]:
+        """
+        Process a user message with document context from a specific twin version.
+        
+        Args:
+            message: User's input message
+            session_id: Unique session identifier for conversation tracking
+            twin_version_id: Twin version ID to search for relevant documents
+            
+        Returns:
+            Dictionary containing the response and metadata including document context
+        """
+        logger.info(f"Processing message with documents for session {session_id}, twin version {twin_version_id}: {message[:100]}...")
+        
+        try:
+            # Get document context
+            from .document_utils import SemanticSearch
+            semantic_search = SemanticSearch()
+            
+            # Search for relevant documents
+            document_results = await semantic_search.search_documents(
+                query=message,
+                twin_version_id=twin_version_id,
+                top_k=5
+            )
+            
+            # Prepare document context for the agent
+            document_context = ""
+            document_info = []
+            
+            if document_results:
+                context_parts = []
+                for result in document_results:
+                    context_part = f"[From: {result['title']}]\n{result['content']}\n"
+                    context_parts.append(context_part)
+                    document_info.append({
+                        'title': result['title'],
+                        'similarity': result['similarity']
+                    })
+                
+                document_context = "\n".join(context_parts)
+                
+                # Enhance the message with document context
+                enhanced_message = f"""
+Context from uploaded documents:
+{document_context}
+
+User question: {message}
+
+Please answer the user's question using the provided document context when relevant. If the documents contain relevant information, reference them in your response. If the documents don't contain relevant information for this question, answer based on your general knowledge about digital twins and industrial systems.
+"""
+            else:
+                enhanced_message = message
+            
+            # Get conversation history from cache
+            conversation_key = f"conversation:{session_id}"
+            conversation_history = cache.get(conversation_key, [])
+            
+            # Add user message to history
+            conversation_history.append({"role": "user", "content": message})
+            
+            # Run the agent with enhanced message
+            result = await Runner.run(
+                self.agent,
+                input=enhanced_message,
+                max_turns=getattr(settings, 'AGENT_MAX_TURNS', 20)
+            )
+            
+            # Extract the final response
+            response_content = result.final_output if hasattr(result, 'final_output') else str(result)
+            
+            # Add agent response to history
+            conversation_history.append({"role": "assistant", "content": response_content})
+            
+            # Cache the updated conversation (expire after 1 hour)
+            cache.set(conversation_key, conversation_history, 3600)
+            
+            logger.info(f"Successfully processed message with documents for session {session_id}")
+            
+            return {
+                "response": response_content,
+                "session_id": session_id,
+                "status": "success",
+                "metadata": {
+                    "model": getattr(settings, 'AGENT_MODEL', 'gpt-4o-mini'),
+                    "tools_used": self._extract_tools_used(result),
+                    "conversation_length": len(conversation_history),
+                    "document_context": document_info,
+                    "documents_found": len(document_results)
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error processing message with documents for session {session_id}: {e}")
+            return {
+                "response": "I apologize, but I encountered an error while processing your request. Please try again.",
+                "session_id": session_id,
+                "status": "error",
+                "error": str(e)
+            }
     
     def _extract_tools_used(self, result) -> list:
         """Extract information about tools used during agent execution."""

@@ -108,8 +108,33 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
+# Media files (User uploads)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# File Upload Settings
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+FILE_UPLOAD_PERMISSIONS = 0o644
+
+# Document Processing Settings
+DOCUMENT_CHUNK_SIZE = 1000  # characters per chunk
+DOCUMENT_CHUNK_OVERLAP = 200  # overlap between chunks
+MAX_DOCUMENT_SIZE = 50 * 1024 * 1024  # 50MB
+
+# OpenAI and Agent Configuration
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+AGENT_MODEL = os.getenv('AGENT_MODEL', 'gpt-4o-mini')
+OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4-turbo-preview')  # Keep for backward compatibility
+AGENT_MAX_TURNS = int(os.getenv('AGENT_MAX_TURNS', '20'))
+AGENT_TIMEOUT = int(os.getenv('AGENT_TIMEOUT', '30'))
+
+# Embedding Model Configuration
+EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'text-embedding-3-small')
+EMBEDDING_DIMENSIONS = 1536  # for text-embedding-3-small
 
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
@@ -163,10 +188,3 @@ LOGGING = {
         'level': 'WARNING',
     },
 }
-
-# OpenAI and Agent Configuration
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-AGENT_MODEL = os.getenv('AGENT_MODEL', 'gpt-4o-mini')
-OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4-turbo-preview')  # Keep for backward compatibility
-AGENT_MAX_TURNS = int(os.getenv('AGENT_MAX_TURNS', '20'))
-AGENT_TIMEOUT = int(os.getenv('AGENT_TIMEOUT', '30'))

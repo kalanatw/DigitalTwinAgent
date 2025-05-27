@@ -45,6 +45,7 @@ fastapi_app.add_middleware(
 class ChatRequest(BaseModel):
     message: str
     session_id: str = None
+    twin_version_id: str = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -73,35 +74,24 @@ class ApiChatView(View):
             data = json.loads(request.body)
             message = data.get('message', '')
             session_id = data.get('session_id') or str(uuid.uuid4())
+            twin_version_id = data.get('twin_version_id')
             
             if not message:
                 return JsonResponse({'error': 'Message is required'}, status=400)
             
             # Get agent instance and process message
             agent = get_agent_instance()
-            result = await agent.process_message(message, session_id)
             
-            # Store in database
+            # Include document context if twin version is specified
+            if twin_version_id:
+                result = await agent.process_message_with_documents(message, session_id, twin_version_id)
+            else:
+                result = await agent.process_message(message, session_id)
+            
+            # Store in database (temporarily disabled due to async context)
+            # TODO: Implement proper async database storage
             try:
-                chat_session, created = ChatSession.objects.get_or_create(
-                    session_id=session_id,
-                    defaults={'is_active': True}
-                )
-                
-                # Save user message
-                ChatMessage.objects.create(
-                    session=chat_session,
-                    role='user',
-                    content=message
-                )
-                
-                # Save assistant response
-                ChatMessage.objects.create(
-                    session=chat_session,
-                    role='assistant',
-                    content=result['response'],
-                    tools_used=result.get('metadata', {}).get('tools_used', [])
-                )
+                pass  # Database storage temporarily disabled
                 
             except Exception as db_error:
                 logger.warning(f"Database storage failed: {db_error}")
@@ -185,7 +175,12 @@ async def chat_endpoint(request: ChatRequest):
         
         # Get agent instance and process message
         agent = get_agent_instance()
-        result = await agent.process_message(request.message, session_id)
+        
+        # Include document context if twin version is specified
+        if request.twin_version_id:
+            result = await agent.process_message_with_documents(request.message, session_id, request.twin_version_id)
+        else:
+            result = await agent.process_message(request.message, session_id)
         
         logger.info(f"FastAPI chat processed for session: {session_id}")
         

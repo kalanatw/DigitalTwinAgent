@@ -1,145 +1,391 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto p-4 md:p-6" x-data="chatApp()">
-    <!-- Header Section with iOS 17 Styling -->
-    <div class="bg-white/95 backdrop-blur-lg rounded-3xl shadow-lg p-6 mb-6 border border-gray-100">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-                <h2 class="text-3xl font-semibold text-gray-900 mb-2 tracking-tight">Digital Twin Assistant</h2>
-                <p class="text-gray-600 text-lg">Ask me about sensor data, system status, or digital twin concepts</p>
-            </div>
-            <div class="flex space-x-3">
-                <button @click="clearChat()" 
-                        class="bg-red-50 hover:bg-red-100 text-red-600 px-5 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-sm">
-                    <i class="fas fa-trash mr-2"></i>Clear Chat
-                </button>
-                <button @click="getSensorData()" 
-                        class="bg-green-50 hover:bg-green-100 text-green-600 px-5 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-sm">
-                    <i class="fas fa-thermometer-half mr-2"></i>Get Sensor Data
-                </button>
-            </div>
-        </div>
-    </div>
+<!-- Custom CSS for iOS 17 styling and animations -->
+<style>
+    /* Enhanced iOS 17 styling */
+    .glass-morphism {
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .chat-dropdown {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+    
+    .button-ios {
+        transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        box-shadow: 0 4px 15px 0 rgba(31, 38, 135, 0.1);
+    }
+    
+    .button-ios:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px 0 rgba(31, 38, 135, 0.2);
+    }
+    
+    .button-ios:active {
+        transform: translateY(0px);
+        transition: all 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    
+    .chat-container {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+    }
+    
+    .chat-container::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .chat-container::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    
+    .chat-container::-webkit-scrollbar-thumb {
+        background-color: rgba(156, 163, 175, 0.3);
+        border-radius: 20px;
+    }
+    
+    .chat-container::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(156, 163, 175, 0.5);
+    }
+    
+    /* Refined typing indicator */
+    .typing-indicator {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .typing-indicator span {
+        height: 8px;
+        width: 8px;
+        background: #6B7280;
+        border-radius: 50%;
+        animation: typing 1.4s infinite ease-in-out;
+    }
+    
+    .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+    .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0; }
+    
+    @keyframes typing {
+        0%, 80%, 100% { 
+            transform: scale(0.8);
+            opacity: 0.5;
+        }
+        40% { 
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    
+    /* Pulse animation for connectivity */
+    .pulse-dot {
+        animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    
+    @keyframes pulse-glow {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.7;
+        }
+    }
+</style>
 
-    <!-- Chat Container with iOS 17 Design -->
-    <div class="bg-white/95 backdrop-blur-lg rounded-3xl shadow-xl h-[500px] md:h-[600px] flex flex-col border border-gray-100 overflow-hidden">
-        <!-- Messages Area -->
-        <div class="flex-1 overflow-y-auto p-6 chat-container" x-ref="chatContainer">
-            <template x-for="message in messages" :key="message.id">
-                <div class="mb-6" :class="message.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
-                    <div class="max-w-[80%] md:max-w-md"
-                         :class="message.role === 'user' 
-                                 ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-3xl rounded-br-lg' 
-                                 : 'bg-gray-100 text-gray-800 rounded-3xl rounded-bl-lg'">
-                        <div class="px-5 py-4">
-                            <div class="flex items-start">
-                                <div x-show="message.role === 'assistant'" class="mr-3 mt-1">
-                                    <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
-                                        <i class="fas fa-robot text-white text-sm"></i>
-                                    </div>
-                                </div>
-                                <div class="flex-1">
-                                    <p x-text="message.content" class="whitespace-pre-wrap leading-relaxed"></p>
-                                    <div x-show="message.tools_used && message.tools_used.length > 0" 
-                                         class="text-xs mt-3 opacity-75 flex items-center">
-                                        <i class="fas fa-tools mr-1"></i>
-                                        <span>Tools: <span x-text="message.tools_used.join(', ')"></span></span>
-                                    </div>
-                                </div>
-                                <div x-show="message.role === 'user'" class="ml-3 mt-1">
-                                    <div class="w-8 h-8 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full flex items-center justify-center">
-                                        <i class="fas fa-user text-white text-sm"></i>
-                                    </div>
-                                </div>
+<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50" x-data="chatApp()">
+    <!-- Navigation Header -->
+    <div class="sticky top-0 z-40 glass-morphism border-b border-white/20">
+        <div class="max-w-6xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
+                        <i class="fas fa-robot text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-semibold text-gray-900">Digital Twin Assistant</h1>
+                        <p class="text-sm text-gray-600">AI-powered twin management</p>
+                    </div>
+                </div>
+                
+                <!-- Twin Version Selector with High Z-Index -->
+                <div class="relative z-50" x-data="{ open: false }">
+                    <button @click="open = !open" 
+                            class="button-ios bg-white/80 hover:bg-white text-gray-700 px-4 py-2.5 rounded-2xl flex items-center border border-gray-200/50 min-w-[200px] justify-between">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center mr-3">
+                                <i class="fas fa-layer-group text-white text-sm"></i>
                             </div>
-                            <div class="text-xs mt-2 opacity-60" 
-                                 :class="message.role === 'user' ? 'text-right' : 'text-left'"
-                                 x-text="formatTime(message.timestamp)"></div>
+                            <div class="text-left">
+                                <div class="text-sm font-medium" x-text="selectedTwinVersion ? selectedTwinVersion.name : 'Select Twin'"></div>
+                                <div class="text-xs text-gray-500" x-text="selectedTwinVersion ? 'v' + selectedTwinVersion.version : 'No version'"></div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-            </template>
-            
-            <!-- Typing Indicator with Enhanced Animation -->
-            <div x-show="isTyping" class="mb-6 flex justify-start">
-                <div class="bg-gray-100 rounded-3xl rounded-bl-lg px-5 py-4 shadow-sm">
-                    <div class="flex items-center">
-                        <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mr-3">
-                            <i class="fas fa-robot text-white text-sm"></i>
+                        <i class="fas fa-chevron-down text-gray-400 text-sm" :class="{ 'rotate-180': open }"></i>
+                    </button>
+                    
+                    <!-- Dropdown with Maximum Z-Index -->
+                    <div x-show="open" 
+                         @click.away="open = false" 
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0 scale-95"
+                         x-transition:enter-end="opacity-100 scale-100"
+                         x-transition:leave="transition ease-in duration-150"
+                         x-transition:leave-start="opacity-100 scale-100"
+                         x-transition:leave-end="opacity-0 scale-95"
+                         class="absolute right-0 mt-2 w-80 chat-dropdown rounded-3xl border border-white/30 overflow-hidden"
+                         style="z-index: 9999;">
+                        
+                        <!-- Dropdown Header -->
+                        <div class="p-4 border-b border-gray-100/50">
+                            <div class="flex items-center justify-between">
+                                <h3 class="font-semibold text-gray-900">Twin Versions</h3>
+                                <div class="text-xs text-gray-500" x-text="twinVersions.length + ' available'"></div>
+                            </div>
                         </div>
-                        <div class="typing-indicator">
-                            <span></span>
-                            <span></span>
-                            <span></span>
+                        
+                        <!-- Dropdown Options -->
+                        <div class="max-h-80 overflow-y-auto">
+                            <!-- No Version Option -->
+                            <button @click="selectTwinVersion(null); open = false" 
+                                    class="w-full text-left p-4 hover:bg-gray-50/80 transition-colors duration-200 border-b border-gray-100/50">
+                                <div class="flex items-center">
+                                    <div class="w-10 h-10 bg-gray-100 rounded-2xl flex items-center justify-center mr-3">
+                                        <i class="fas fa-times text-gray-400"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="font-medium text-gray-900">General Mode</div>
+                                        <div class="text-sm text-gray-500">Basic chat without document access</div>
+                                    </div>
+                                    <div x-show="selectedTwinVersion === null" class="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center ml-2">
+                                        <i class="fas fa-check text-white text-xs"></i>
+                                    </div>
+                                </div>
+                            </button>
+                            
+                            <!-- Twin Version Options -->
+                            <template x-for="version in twinVersions" :key="version.id">
+                                <button @click="selectTwinVersion(version); open = false" 
+                                        class="w-full text-left p-4 hover:bg-purple-50/80 transition-colors duration-200 border-b border-gray-100/50 last:border-b-0">
+                                    <div class="flex items-center">
+                                        <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center mr-3">
+                                            <i class="fas fa-layer-group text-white text-sm"></i>
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="font-medium text-gray-900" x-text="version.name + ' v' + version.version"></div>
+                                            <div class="text-sm text-gray-500" x-text="version.document_count + ' documents • ' + (version.description || 'No description')"></div>
+                                        </div>
+                                        <div x-show="selectedTwinVersion && selectedTwinVersion.id === version.id" class="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center ml-2">
+                                            <i class="fas fa-check text-white text-xs"></i>
+                                        </div>
+                                    </div>
+                                </button>
+                            </template>
+                            
+                            <!-- Empty State -->
+                            <div x-show="twinVersions.length === 0" class="p-6 text-center">
+                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i class="fas fa-layer-group text-gray-400 text-xl"></i>
+                                </div>
+                                <div class="text-gray-500 text-sm">No twin versions available</div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Input Area with iOS 17 Design -->
-        <div class="border-t border-gray-100 p-6 bg-gray-50/80 backdrop-blur-sm">
-            <div class="flex space-x-4">
-                <div class="flex-1 relative">
-                    <input type="text" 
-                           x-model="currentMessage" 
-                           @keydown.enter="sendMessage()"
-                           placeholder="Ask about sensor data, system status, or digital twin concepts..."
-                           class="w-full border-0 bg-white rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500/30 shadow-sm text-gray-900 placeholder-gray-500 transition-all duration-200"
-                           :disabled="isTyping">
-                    <div x-show="isTyping" class="absolute right-4 top-1/2 transform -translate-y-1/2">
-                        <div class="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+    <!-- Main Chat Container -->
+    <div class="max-w-6xl mx-auto p-4">
+        <!-- Active Twin Version Banner -->
+        <div x-show="selectedTwinVersion" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 transform -translate-y-4"
+             x-transition:enter-end="opacity-100 transform translate-y-0"
+             class="glass-morphism rounded-3xl p-4 mb-6 border border-white/20">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center mr-4">
+                        <i class="fas fa-layer-group text-white"></i>
+                    </div>
+                    <div>
+                        <div class="font-semibold text-gray-900" x-text="selectedTwinVersion ? 'Active: ' + selectedTwinVersion.name + ' v' + selectedTwinVersion.version : ''"></div>
+                        <div class="text-sm text-gray-600" x-text="selectedTwinVersion ? (selectedTwinVersion.description || 'No description') : ''"></div>
                     </div>
                 </div>
-                <button @click="sendMessage()" 
-                        :disabled="isTyping || !currentMessage.trim()"
-                        class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-gray-300 disabled:to-gray-400 text-white p-4 rounded-2xl transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-lg disabled:transform-none disabled:shadow-sm">
-                    <i class="fas fa-paper-plane text-lg" :class="{ 'animate-pulse': isTyping }"></i>
-                </button>
+                <div class="text-right">
+                    <div class="text-lg font-bold text-purple-600" x-text="selectedTwinVersion ? selectedTwinVersion.document_count : '0'"></div>
+                    <div class="text-xs text-gray-500">Documents</div>
+                </div>
+            </div>
+        </div>
+        <!-- Chat Container with Enhanced iOS 17 Design -->
+        <div class="glass-morphism rounded-3xl shadow-2xl flex flex-col border border-white/20 overflow-hidden" style="height: calc(100vh - 280px); min-height: 500px;">
+            <!-- Messages Area with Enhanced Styling -->
+            <div class="flex-1 overflow-y-auto p-6 chat-container" x-ref="chatContainer">
+                <!-- Welcome Message for Empty State -->
+                <div x-show="messages.length === 0" class="text-center py-12">
+                    <div class="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                        <i class="fas fa-robot text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">Welcome to Digital Twin Assistant</h3>
+                    <p class="text-gray-600 mb-6">I can help you with sensor data, system status, and document queries.</p>
+                    <div class="flex flex-wrap justify-center gap-2">
+                        <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">Sensor Data</span>
+                        <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm">System Status</span>
+                        <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">Document Search</span>
+                    </div>
+                </div>
+
+                <!-- Chat Messages -->
+                <template x-for="message in messages" :key="message.id">
+                    <div class="mb-8" :class="message.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
+                        <div class="max-w-[75%] md:max-w-lg"
+                             :class="message.role === 'user' 
+                                     ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-3xl rounded-br-xl shadow-lg' 
+                                     : 'bg-white/90 text-gray-800 rounded-3xl rounded-bl-xl shadow-lg border border-gray-100'">
+                            <div class="px-6 py-4">
+                                <div class="flex items-start">
+                                    <!-- Assistant Avatar -->
+                                    <div x-show="message.role === 'assistant'" class="mr-4 mt-1">
+                                        <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                                            <i class="fas fa-robot text-white text-sm"></i>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Message Content -->
+                                    <div class="flex-1 min-w-0">
+                                        <p x-text="message.content" class="whitespace-pre-wrap leading-relaxed text-[15px]"></p>
+                                        
+                                        <!-- Tools Used Indicator -->
+                                        <div x-show="message.tools_used && message.tools_used.length > 0" 
+                                             class="text-xs mt-3 opacity-75 flex items-center">
+                                            <i class="fas fa-tools mr-2"></i>
+                                            <span class="bg-black/10 px-2 py-1 rounded-full">
+                                                Tools: <span x-text="message.tools_used.join(', ')"></span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- User Avatar -->
+                                    <div x-show="message.role === 'user'" class="ml-4 mt-1">
+                                        <div class="w-10 h-10 bg-gradient-to-br from-gray-500 to-gray-600 rounded-2xl flex items-center justify-center shadow-lg">
+                                            <i class="fas fa-user text-white text-sm"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Timestamp -->
+                                <div class="text-xs mt-3 opacity-60" 
+                                     :class="message.role === 'user' ? 'text-right text-blue-100' : 'text-left text-gray-500'"
+                                     x-text="formatTime(message.timestamp)"></div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                
+                <!-- Enhanced Typing Indicator -->
+                <div x-show="isTyping" class="mb-8 flex justify-start">
+                    <div class="bg-white/90 rounded-3xl rounded-bl-xl px-6 py-4 shadow-lg border border-gray-100">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mr-4 shadow-lg">
+                                <i class="fas fa-robot text-white text-sm"></i>
+                            </div>
+                            <div class="typing-indicator">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                            <span class="ml-3 text-gray-500 text-sm">Assistant is thinking...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enhanced Input Area -->
+            <div class="border-t border-gray-200/50 p-6 bg-white/50 backdrop-blur-sm">
+                <div class="flex items-end space-x-4">
+                    <!-- Quick Actions -->
+                    <div class="flex space-x-2">
+                        <button @click="getSensorData()" 
+                                class="button-ios w-10 h-10 bg-green-100 hover:bg-green-200 text-green-600 rounded-2xl flex items-center justify-center"
+                                title="Get Sensor Data">
+                            <i class="fas fa-thermometer-half text-sm"></i>
+                        </button>
+                        <button @click="clearChat()" 
+                                class="button-ios w-10 h-10 bg-red-100 hover:bg-red-200 text-red-600 rounded-2xl flex items-center justify-center"
+                                title="Clear Chat">
+                            <i class="fas fa-trash text-sm"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Message Input -->
+                    <div class="flex-1 relative">
+                        <textarea x-model="currentMessage" 
+                                 @keydown.enter.prevent="!$event.shiftKey && sendMessage()"
+                                 @input="autoResize($event)"
+                                 placeholder="Ask about sensor data, system status, or digital twin concepts..."
+                                 class="w-full border-0 bg-white/90 rounded-2xl px-6 py-4 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-500/30 shadow-lg text-gray-900 placeholder-gray-500 transition-all duration-200 resize-none min-h-[52px] max-h-32"
+                                 :disabled="isTyping"
+                                 rows="1"></textarea>
+                        
+                        <!-- Loading Indicator -->
+                        <div x-show="isTyping" class="absolute right-4 top-1/2 transform -translate-y-1/2">
+                            <div class="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+                        </div>
+                        
+                        <!-- Character Count (optional) -->
+                        <div x-show="currentMessage.length > 0" class="absolute bottom-1 right-12 text-xs text-gray-400" 
+                             x-text="currentMessage.length"></div>
+                    </div>
+                    
+                    <!-- Send Button -->
+                    <button @click="sendMessage()" 
+                            :disabled="isTyping || !currentMessage.trim()"
+                            class="button-ios bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-gray-300 disabled:to-gray-400 text-white w-12 h-12 rounded-2xl transition-all duration-200 shadow-lg disabled:shadow-sm flex items-center justify-center">
+                        <i class="fas fa-paper-plane text-lg" :class="{ 'animate-pulse': isTyping }"></i>
+                    </button>
+                </div>
+                
+                <!-- Quick Suggestions -->
+                <div class="flex flex-wrap gap-2 mt-4">
+                    <button @click="quickMessage('Show me all sensor data from the main facility')"
+                            class="text-xs px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl transition-colors duration-200">
+                        📊 All Sensor Data
+                    </button>
+                    <button @click="quickMessage('What is the current system status?')"
+                            class="text-xs px-3 py-2 bg-green-50 hover:bg-green-100 text-green-600 rounded-xl transition-colors duration-200">
+                        ⚡ System Status
+                    </button>
+                    <button @click="quickMessage('Explain what a digital twin is and its benefits')"
+                            class="text-xs px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-xl transition-colors duration-200">
+                        🤖 About Digital Twins
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Quick Actions with iOS 17 Cards -->
-    <div class="mt-6 bg-white/95 backdrop-blur-lg rounded-3xl shadow-lg p-6 border border-gray-100">
-        <h3 class="text-xl font-semibold mb-6 text-gray-900">Quick Actions</h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button @click="quickMessage('Show me all sensor data from the main facility')"
-                    class="group bg-blue-50 hover:bg-blue-100 text-blue-700 px-6 py-5 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 hover:shadow-lg border border-blue-200">
-                <div class="flex items-center justify-center mb-2">
-                    <i class="fas fa-thermometer-half text-2xl group-hover:scale-110 transition-transform duration-200"></i>
-                </div>
-                <div class="font-medium">All Sensor Data</div>
-            </button>
-            <button @click="quickMessage('What is the current system status?')"
-                    class="group bg-green-50 hover:bg-green-100 text-green-700 px-6 py-5 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 hover:shadow-lg border border-green-200">
-                <div class="flex items-center justify-center mb-2">
-                    <i class="fas fa-cogs text-2xl group-hover:scale-110 transition-transform duration-200"></i>
-                </div>
-                <div class="font-medium">System Status</div>
-            </button>
-            <button @click="quickMessage('Explain what a digital twin is and its benefits')"
-                    class="group bg-purple-50 hover:bg-purple-100 text-purple-700 px-6 py-5 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 hover:shadow-lg border border-purple-200">
-                <div class="flex items-center justify-center mb-2">
-                    <i class="fas fa-question-circle text-2xl group-hover:scale-110 transition-transform duration-200"></i>
-                </div>
-                <div class="font-medium">About Digital Twins</div>
-            </button>
-        </div>
-    </div>
-
-    <!-- Status Indicator with iOS 17 Design -->
-    <div class="fixed bottom-6 right-6 z-50">
-        <div class="bg-white/95 backdrop-blur-lg rounded-2xl shadow-xl p-4 border border-gray-200">
+    <!-- Status Indicator with Enhanced Design -->
+    <div class="fixed bottom-6 right-6 z-30">
+        <div class="glass-morphism rounded-2xl shadow-xl p-4 border border-white/30">
             <div class="flex items-center space-x-3">
                 <div class="relative">
                     <div :class="isConnected ? 'bg-green-500' : 'bg-red-500'" 
-                         class="w-3 h-3 rounded-full"></div>
-                    <div :class="isConnected ? 'bg-green-500' : 'bg-red-500'" 
-                         class="absolute top-0 left-0 w-3 h-3 rounded-full animate-ping opacity-75"></div>
+                         class="w-3 h-3 rounded-full pulse-dot"></div>
                 </div>
-                <span class="text-sm font-medium text-gray-700" x-text="isConnected ? 'Connected' : 'Disconnected'"></span>
+                <div class="text-sm font-medium text-gray-700">
+                    <div x-text="isConnected ? 'Connected' : 'Disconnected'"></div>
+                    <div class="text-xs text-gray-500" x-text="twinVersions.length + ' twins available'"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -154,15 +400,50 @@ function chatApp() {
         isTyping: false,
         isConnected: true,
         sessionId: '',
+        
+        // Twin Version state
+        twinVersions: [],
+        selectedTwinVersion: null,
 
         // Initialize the component
-        init() {
+        async init() {
             // Generate session ID first
             this.sessionId = this.getStoredSessionId() || this.generateSessionId();
+            // Load twin versions
+            await this.loadTwinVersions();
             // Load conversation history if available
             this.loadHistory();
             // Check connection status
             this.checkConnection();
+        },
+
+        // Load twin versions
+        async loadTwinVersions() {
+            try {
+                const response = await fetch('/api/twin-versions/');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.twinVersions = data.twin_versions || data;
+                }
+            } catch (error) {
+                console.warn('Could not load twin versions:', error);
+                this.twinVersions = [];
+            }
+        },
+
+        // Select twin version
+        selectTwinVersion(version) {
+            this.selectedTwinVersion = version;
+            // Generate new session when twin version changes
+            this.sessionId = this.generateSessionId();
+            // Clear current messages
+            this.messages = [];
+            
+            if (version) {
+                this.addMessage('assistant', `Switched to ${version.name} v${version.version}. I now have access to ${version.document_count} documents for this twin version. How can I help you?`);
+            } else {
+                this.addMessage('assistant', 'Switched to general mode. I can help with sensor data, system status, and general digital twin concepts.');
+            }
         },
 
         // Get stored session ID from localStorage
@@ -199,16 +480,23 @@ function chatApp() {
             this.scrollToBottom();
 
             try {
+                const payload = {
+                    message: message,
+                    session_id: this.sessionId
+                };
+
+                // Include twin version ID if selected for document context
+                if (this.selectedTwinVersion) {
+                    payload.twin_version_id = this.selectedTwinVersion.id;
+                }
+
                 const response = await fetch('/api/chat/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-Requested-With': 'XMLHttpRequest',
                     },
-                    body: JSON.stringify({
-                        message: message,
-                        session_id: this.sessionId
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 if (!response.ok) {
@@ -220,6 +508,11 @@ function chatApp() {
                 if (data.status === 'success') {
                     this.addMessage('assistant', data.response, data.metadata?.tools_used || []);
                     this.isConnected = true;
+                    
+                    // Show document context if provided
+                    if (data.metadata?.document_context) {
+                        this.showDocumentContext(data.metadata.document_context);
+                    }
                 } else {
                     this.addMessage('assistant', `Sorry, I encountered an error: ${data.message || 'Unknown error'}`);
                 }
@@ -230,6 +523,14 @@ function chatApp() {
             } finally {
                 this.isTyping = false;
                 this.scrollToBottom();
+            }
+        },
+
+        // Show document context information
+        showDocumentContext(documentContext) {
+            if (documentContext && documentContext.length > 0) {
+                const contextInfo = `📄 Reference: Found relevant information in ${documentContext.length} document(s): ${documentContext.map(doc => doc.title).join(', ')}`;
+                this.addMessage('assistant', contextInfo, ['document_search']);
             }
         },
 
@@ -262,20 +563,11 @@ function chatApp() {
             if (confirm('Are you sure you want to clear the chat history?')) {
                 this.messages = [];
                 
-                // Clear server-side history
-                try {
-                    await fetch(`/api/sessions/${this.sessionId}/`, { 
-                        method: 'DELETE',
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                        }
-                    });
-                } catch (error) {
-                    console.warn('Could not clear server-side history:', error);
-                }
-                
-                // Generate new session
+                // Generate new session (no server-side history to clear for now)
                 this.sessionId = this.generateSessionId();
+                
+                // Add welcome message
+                this.addMessage('assistant', 'Chat cleared! How can I help you today?');
             }
         },
 
@@ -296,6 +588,13 @@ function chatApp() {
             }
         },
 
+        // Auto-resize textarea
+        autoResize(event) {
+            const textarea = event.target;
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 128) + 'px';
+        },
+
         // Format timestamp
         formatTime(timestamp) {
             try {
@@ -310,36 +609,19 @@ function chatApp() {
             }
         },
 
-        // Load conversation history
+        // Load conversation history (simplified for now)
         async loadHistory() {
-            try {
-                const response = await fetch(`/api/sessions/${this.sessionId}/history/`, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.messages && Array.isArray(data.messages)) {
-                        this.messages = data.messages.map(msg => ({
-                            ...msg,
-                            timestamp: new Date(msg.timestamp)
-                        }));
-                        this.$nextTick(() => {
-                            this.scrollToBottom();
-                        });
-                    }
-                }
-            } catch (error) {
-                console.warn('Could not load conversation history:', error);
+            // For now, just add a welcome message
+            if (this.messages.length === 0) {
+                this.addMessage('assistant', 'Hello! I\'m your Digital Twin Assistant. I can help you with sensor data, system status, and document queries. Select a twin version to access specific documents.');
             }
         },
 
         // Check connection status
         async checkConnection() {
             try {
-                const response = await fetch('/health/', {
+                // Use a simple API endpoint to check connection
+                const response = await fetch('/api/twin-versions/', {
                     method: 'GET',
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',

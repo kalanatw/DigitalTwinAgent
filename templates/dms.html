@@ -1,0 +1,1199 @@
+{% extends 'base.html' %}
+
+{% block title %}Document Management System - Digital Twin{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto p-4 md:p-6" x-data="dmsApp()">
+    <!-- Header Section with iOS 17 Styling -->
+    <div class="bg-white/95 backdrop-blur-lg rounded-3xl shadow-lg p-6 mb-6 border border-gray-100">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-semibold text-gray-900 mb-2 tracking-tight">Document Management System</h1>
+                <p class="text-gray-600 text-lg">
+                    Manage documents for your Digital Twin versions with AI-powered search
+                    <span x-show="selectedTwinVersion" class="inline-block ml-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                        <span x-text="selectedTwinVersion.name"></span> - <span x-text="totalDocuments"></span> documents
+                    </span>
+                </p>
+            </div>
+            <div class="flex space-x-3">
+                <button @click="showUploadModal = true" 
+                        class="bg-blue-50 hover:bg-blue-100 text-blue-600 px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-sm border border-blue-200">
+                    <i class="fas fa-upload mr-2"></i>Upload Document
+                </button>
+                <button @click="showTwinVersionModal = true" 
+                        class="bg-green-50 hover:bg-green-100 text-green-600 px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-sm border border-green-200">
+                    <i class="fas fa-plus mr-2"></i>New Twin Version
+                </button>
+                <button @click="refreshData()" 
+                        :disabled="isLoading"
+                        class="bg-gray-50 hover:bg-gray-100 text-gray-600 px-4 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-sm border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fas fa-sync-alt mr-2" :class="{ 'fa-spin': isLoading }"></i>
+                    <span x-show="!isLoading">Refresh</span>
+                    <span x-show="isLoading">Refreshing...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Twin Version Selector -->
+    <div class="bg-white/95 backdrop-blur-lg rounded-3xl shadow-lg p-6 mb-6 border border-gray-100">
+        <h3 class="text-xl font-semibold mb-4 text-gray-900">Twin Versions</h3>
+        <div x-show="twinVersions.length === 0" class="text-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent mx-auto mb-3"></div>
+            <p class="text-gray-500">Loading twin versions...</p>
+        </div>
+        <div x-show="twinVersions.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <template x-for="version in twinVersions" :key="version.id">
+                <div class="group cursor-pointer p-4 rounded-2xl border-2 transition-all duration-300"
+                     :class="selectedTwinVersion?.id === version.id 
+                             ? 'border-blue-500 bg-blue-50' 
+                             : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'"
+                     @click="selectTwinVersion(version)">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-gray-900" x-text="version.name"></h4>
+                            <p class="text-sm text-gray-600 mt-1" x-text="'Version ' + version.version"></p>
+                            <p class="text-xs text-gray-500 mt-2" x-text="version.description"></p>
+                        </div>
+                        <div class="ml-3">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                <span x-text="version.document_count"></span> docs
+                            </span>
+                        </div>
+                    </div>
+                    <div class="mt-3 flex items-center text-xs text-gray-500">
+                        <i class="fas fa-calendar mr-1"></i>
+                        <span x-text="formatDate(version.created_at)"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Search and Filters -->
+    <div class="bg-white/95 backdrop-blur-lg rounded-3xl shadow-lg p-6 mb-6 border border-gray-100" x-show="selectedTwinVersion">
+        <div class="flex flex-col md:flex-row gap-4 items-center">
+            <div class="flex-1">
+                <div class="relative">
+                    <input type="text" 
+                           x-model="searchQuery" 
+                           @input="debouncedSearch()"
+                           placeholder="Search documents by title or description..."
+                           class="w-full border-0 bg-gray-50 rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500/30 text-gray-900 placeholder-gray-500">
+                    <div class="absolute right-4 top-1/2 transform -translate-y-1/2">
+                        <i class="fas fa-search text-gray-400"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="flex space-x-3">
+                <select x-model="statusFilter" @change="loadDocuments()"
+                        class="border-0 bg-gray-50 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                    <option value="">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="processing">Processing</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                </select>
+                <button @click="showSemanticSearch = true" 
+                        :disabled="!selectedTwinVersion"
+                        class="bg-purple-50 hover:bg-purple-100 text-purple-600 px-4 py-3 rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fas fa-brain mr-2"></i>AI Search
+                    <span x-show="!selectedTwinVersion" class="ml-1 text-xs">(Select version first)</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Documents Grid -->
+    <div x-show="selectedTwinVersion">
+        <div class="bg-white/95 backdrop-blur-lg rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+            <!-- Documents Header -->
+            <div class="p-6 border-b border-gray-100">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xl font-semibold text-gray-900">Documents</h3>
+                    <div class="flex items-center space-x-3">
+                        <span class="text-sm text-gray-500" x-text="'Total: ' + totalDocuments"></span>
+                        <div class="flex space-x-1">
+                            <button @click="viewMode = 'grid'" 
+                                    :class="viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-400'"
+                                    class="p-2 rounded-lg transition-colors">
+                                <i class="fas fa-th"></i>
+                            </button>
+                            <button @click="viewMode = 'list'" 
+                                    :class="viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-400'"
+                                    class="p-2 rounded-lg transition-colors">
+                                <i class="fas fa-list"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Documents Content -->
+            <div class="p-6">
+                <div x-show="isLoading" class="text-center py-12">
+                    <div class="animate-spin rounded-full h-12 w-12 border-2 border-blue-500 border-t-transparent mx-auto mb-4"></div>
+                    <p class="text-gray-500">Loading documents...</p>
+                </div>
+
+                <div x-show="!isLoading && documents.length === 0" class="text-center py-12">
+                    <div class="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-file-alt text-2xl text-gray-400"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No documents found</h3>
+                    <p class="text-gray-500 mb-4">Upload your first document to get started</p>
+                    <button @click="showUploadModal = true" 
+                            class="bg-blue-50 hover:bg-blue-100 text-blue-600 px-6 py-3 rounded-2xl transition-all duration-300">
+                        <i class="fas fa-upload mr-2"></i>Upload Document
+                    </button>
+                </div>
+
+                <!-- Grid View -->
+                <div x-show="!isLoading && documents.length > 0 && viewMode === 'grid'" 
+                     class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <template x-for="doc in documents" :key="doc.id">
+                        <div class="group bg-white rounded-2xl border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all duration-300 overflow-hidden">
+                            <div class="p-6">
+                                <div class="flex items-start justify-between mb-4">
+                                    <div class="flex items-center">
+                                        <div class="w-12 h-12 rounded-2xl flex items-center justify-center mr-4"
+                                             :class="getFileTypeClass(doc.file_type)">
+                                            <i :class="getFileTypeIcon(doc.file_type)" class="text-xl"></i>
+                                        </div>
+                                        <div class="flex-1">
+                                            <h4 class="font-semibold text-gray-900 mb-1" x-text="doc.title"></h4>
+                                            <p class="text-sm text-gray-500" x-text="formatFileSize(doc.file_size)"></p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <span :class="getStatusClass(doc.status)" 
+                                              class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium">
+                                            <span x-text="doc.status"></span>
+                                        </span>
+                                        <div class="relative" x-data="{ open: false }">
+                                            <button @click="open = !open" class="p-2 text-gray-400 hover:text-gray-600">
+                                                <i class="fas fa-ellipsis-v"></i>
+                                            </button>
+                                            <div x-show="open" @click.away="open = false" 
+                                                 class="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 z-10">
+                                                <div class="py-2">
+                                                    <button @click="viewDocument(doc); open = false" 
+                                                            class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                        <i class="fas fa-eye mr-2"></i>View Details
+                                                    </button>
+                                                    <button @click="toggleDocumentStatus(doc); open = false" 
+                                                            class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                        <i :class="doc.is_enabled ? 'fas fa-eye-slash' : 'fas fa-eye'" class="mr-2"></i>
+                                                        <span x-text="doc.is_enabled ? 'Disable for Chat' : 'Enable for Chat'"></span>
+                                                    </button>
+                                                    <button @click="deleteDocument(doc); open = false" 
+                                                            class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                                        <i class="fas fa-trash mr-2"></i>Delete
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <p class="text-sm text-gray-600 mb-4 line-clamp-2" x-text="doc.description || 'No description'"></p>
+                                
+                                <div class="flex items-center justify-between text-xs text-gray-500">
+                                    <div class="flex items-center space-x-4">
+                                        <span x-show="doc.page_count" x-text="doc.page_count + ' pages'"></span>
+                                        <span x-show="doc.word_count" x-text="doc.word_count + ' words'"></span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <i class="fas fa-clock mr-1"></i>
+                                        <span x-text="formatDate(doc.uploaded_at)"></span>
+                                    </div>
+                                </div>
+
+                                <div x-show="doc.is_enabled" class="mt-3">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <i class="fas fa-comments mr-1"></i>Chat Enabled
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- List View -->
+                <div x-show="!isLoading && documents.length > 0 && viewMode === 'list'" class="space-y-3">
+                    <template x-for="doc in documents" :key="doc.id">
+                        <div class="bg-white rounded-2xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-300 p-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center flex-1">
+                                    <div class="w-10 h-10 rounded-xl flex items-center justify-center mr-4"
+                                         :class="getFileTypeClass(doc.file_type)">
+                                        <i :class="getFileTypeIcon(doc.file_type)" class="text-lg"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h4 class="font-semibold text-gray-900" x-text="doc.title"></h4>
+                                        <p class="text-sm text-gray-600" x-text="doc.description || 'No description'"></p>
+                                        <div class="flex items-center space-x-4 text-xs text-gray-500 mt-1">
+                                            <span x-text="formatFileSize(doc.file_size)"></span>
+                                            <span x-show="doc.page_count" x-text="doc.page_count + ' pages'"></span>
+                                            <span x-text="formatDate(doc.uploaded_at)"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <span x-show="doc.is_enabled" 
+                                          class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Chat Enabled
+                                    </span>
+                                    <span :class="getStatusClass(doc.status)" 
+                                          class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium">
+                                        <span x-text="doc.status"></span>
+                                    </span>
+                                    <div class="relative" x-data="{ open: false }">
+                                        <button @click="open = !open" class="p-2 text-gray-400 hover:text-gray-600">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <div x-show="open" @click.away="open = false" 
+                                             class="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 z-10">
+                                            <div class="py-2">
+                                                <button @click="viewDocument(doc); open = false" 
+                                                        class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                    <i class="fas fa-eye mr-2"></i>View Details
+                                                </button>
+                                                <button @click="toggleDocumentStatus(doc); open = false" 
+                                                        class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                    <i :class="doc.is_enabled ? 'fas fa-eye-slash' : 'fas fa-eye'" class="mr-2"></i>
+                                                    <span x-text="doc.is_enabled ? 'Disable for Chat' : 'Enable for Chat'"></span>
+                                                </button>
+                                                <button @click="deleteDocument(doc); open = false" 
+                                                        class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                                    <i class="fas fa-trash mr-2"></i>Delete
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Pagination -->
+                <div x-show="!isLoading && documents.length > 0 && pagination.total_pages > 1" 
+                     class="flex items-center justify-between mt-8 pt-6 border-t border-gray-100">
+                    <div class="text-sm text-gray-500">
+                        Showing <span x-text="((pagination.current_page - 1) * 20) + 1"></span> to 
+                        <span x-text="Math.min(pagination.current_page * 20, pagination.total_items)"></span> of 
+                        <span x-text="pagination.total_items"></span> documents
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button @click="changePage(pagination.current_page - 1)" 
+                                :disabled="!pagination.has_previous"
+                                class="px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <template x-for="page in getPageNumbers()" :key="page">
+                            <button @click="changePage(page)" 
+                                    :class="page === pagination.current_page ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                                    class="px-4 py-2 rounded-xl border border-gray-200 transition-colors"
+                                    x-text="page"></button>
+                        </template>
+                        <button @click="changePage(pagination.current_page + 1)" 
+                                :disabled="!pagination.has_next"
+                                class="px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div x-show="showUploadModal" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div x-show="showUploadModal"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-95"
+             class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-semibold text-gray-900">Upload Document</h3>
+                <button @click="showUploadModal = false" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <form @submit.prevent="uploadDocument()" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Twin Version</label>
+                    <select x-model="uploadForm.twin_version_id" required
+                            class="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                        <option value="">Select a twin version</option>
+                        <template x-for="version in twinVersions" :key="version.id">
+                            <option :value="version.id" x-text="version.name + ' v' + version.version"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Document Title</label>
+                    <input type="text" x-model="uploadForm.title" required
+                           class="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                           placeholder="Enter document title">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Description (Optional)</label>
+                    <textarea x-model="uploadForm.description" rows="3"
+                              class="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                              placeholder="Enter document description"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">File</label>
+                    <div class="relative">
+                        <input type="file" @change="handleFileSelect" accept=".pdf,.docx,.txt,.md" required
+                               class="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Supported formats: PDF, DOCX, TXT, MD</p>
+                </div>
+
+                <div class="flex space-x-3 pt-4">
+                    <button type="button" @click="showUploadModal = false" 
+                            class="flex-1 px-6 py-3 border border-gray-300 rounded-2xl text-gray-700 hover:bg-gray-50 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" :disabled="uploadLoading"
+                            class="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span x-show="!uploadLoading">Upload</span>
+                        <span x-show="uploadLoading" class="flex items-center justify-center">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>Uploading...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Twin Version Modal -->
+    <div x-show="showTwinVersionModal" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div x-show="showTwinVersionModal"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-95"
+             class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-semibold text-gray-900">Create Twin Version</h3>
+                <button @click="showTwinVersionModal = false" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <form @submit.prevent="createTwinVersion()" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                    <input type="text" x-model="twinVersionForm.name" required
+                           class="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                           placeholder="Enter twin version name">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Version</label>
+                    <input type="text" x-model="twinVersionForm.version" required
+                           class="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                           placeholder="e.g., 1.0, 2.1, etc.">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <textarea x-model="twinVersionForm.description" rows="3"
+                              class="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                              placeholder="Enter description (optional)"></textarea>
+                </div>
+
+                <div class="flex space-x-3 pt-4">
+                    <button type="button" @click="showTwinVersionModal = false" 
+                            class="flex-1 px-6 py-3 border border-gray-300 rounded-2xl text-gray-700 hover:bg-gray-50 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" :disabled="createLoading"
+                            class="flex-1 bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span x-show="!createLoading">Create</span>
+                        <span x-show="createLoading" class="flex items-center justify-center">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>Creating...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Semantic Search Modal -->
+    <div x-show="showSemanticSearch" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div x-show="showSemanticSearch"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-95"
+             class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 max-h-[80vh] overflow-hidden flex flex-col">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-semibold text-gray-900">AI-Powered Document Search</h3>
+                <button @click="showSemanticSearch = false" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4 flex-1 overflow-hidden flex flex-col">
+                <div>
+                    <div class="relative">
+                        <input type="text" x-model="semanticQuery" @keydown.enter="performSemanticSearch()"
+                               class="w-full border border-gray-300 rounded-2xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                               placeholder="Ask a question about your documents...">
+                        <button @click="performSemanticSearch()" :disabled="searchLoading"
+                                class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-xl transition-colors disabled:opacity-50">
+                            <i class="fas fa-search" x-show="!searchLoading"></i>
+                            <i class="fas fa-spinner fa-spin" x-show="searchLoading"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto semantic-results">
+                    <div x-show="semanticResults.length === 0 && !searchLoading" class="text-center py-12">
+                        <div class="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-brain text-2xl text-purple-500"></i>
+                        </div>
+                        <h4 class="text-lg font-medium text-gray-900 mb-2">AI Document Search</h4>
+                        <p class="text-gray-500 mb-4">Enter a question to search through your documents using AI</p>
+                        <div class="text-sm text-gray-400 space-y-1">
+                            <p>💡 Try questions like:</p>
+                            <p>"What are the key features?"</p>
+                            <p>"How does the system work?"</p>
+                            <p>"What are the requirements?"</p>
+                        </div>
+                    </div>
+
+                    <div x-show="searchLoading" class="text-center py-12">
+                        <div class="pulse-gentle">
+                            <div class="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-brain text-2xl text-purple-500"></i>
+                            </div>
+                            <p class="text-gray-500 mb-2">Searching through documents...</p>
+                            <div class="text-sm text-gray-400">Using AI to find the most relevant content</div>
+                        </div>
+                    </div>
+
+                    <div x-show="semanticResults.length > 0" class="space-y-4">
+                        <div class="mb-4 p-3 bg-purple-50 rounded-xl border border-purple-200">
+                            <p class="text-sm text-purple-700">
+                                <i class="fas fa-lightbulb mr-1"></i>
+                                Found <strong x-text="semanticResults.length"></strong> relevant sections. 
+                                Results are ranked by relevance score.
+                            </p>
+                        </div>
+                        
+                        <template x-for="(result, index) in semanticResults" :key="result.document_title + result.content.substring(0, 50)">
+                            <div class="bg-gray-50 rounded-2xl p-4 border border-gray-200 hover:bg-gray-100 transition-colors">
+                                <div class="flex items-start justify-between mb-3">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="inline-flex items-center justify-center w-6 h-6 bg-purple-100 text-purple-600 rounded-full text-xs font-medium"
+                                              x-text="index + 1"></span>
+                                        <h5 class="font-semibold text-gray-900" x-text="result.document_title"></h5>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-xs font-medium px-2 py-1 rounded-full"
+                                              :class="{
+                                                  'bg-green-100 text-green-700': result.similarity >= 0.8,
+                                                  'bg-yellow-100 text-yellow-700': result.similarity >= 0.6 && result.similarity < 0.8,
+                                                  'bg-orange-100 text-orange-700': result.similarity < 0.6
+                                              }"
+                                              x-text="(result.similarity * 100).toFixed(1) + '% match'"></span>
+                                    </div>
+                                </div>
+                                <p class="text-gray-700 text-sm leading-relaxed mb-3" x-text="result.content"></p>
+                                <div class="flex items-center justify-between text-xs text-gray-500">
+                                    <div x-show="result.page_number" class="flex items-center">
+                                        <i class="fas fa-file-alt mr-1"></i>
+                                        Page <span x-text="result.page_number"></span>
+                                    </div>
+                                    <div class="flex items-center space-x-3">
+                                        <span class="flex items-center">
+                                            <i class="fas fa-chart-line mr-1"></i>
+                                            <span x-text="'Rank #' + (index + 1)"></span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Notification System -->
+    <div x-data="{ 
+        notifications: [],
+        addNotification(detail) {
+            this.notifications.push({
+                ...detail,
+                id: Date.now() + Math.random()
+            });
+            setTimeout(() => this.removeNotification(detail.id), 5000);
+        },
+        removeNotification(id) {
+            const index = this.notifications.findIndex(n => n.id === id);
+            if (index !== -1) {
+                this.notifications.splice(index, 1);
+            }
+        }
+    }" 
+         @notify.window="addNotification($event.detail)">
+        <div class="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
+            <template x-for="notification in notifications" :key="notification.id">
+                <div x-show="true"
+                     x-transition:enter="transition ease-out duration-300 transform"
+                     x-transition:enter-start="translate-x-full opacity-0 scale-95"
+                     x-transition:enter-end="translate-x-0 opacity-100 scale-100"
+                     x-transition:leave="transition ease-in duration-200 transform"
+                     x-transition:leave-start="translate-x-0 opacity-100 scale-100"
+                     x-transition:leave-end="translate-x-full opacity-0 scale-95"
+                     class="bg-white shadow-xl rounded-2xl pointer-events-auto overflow-hidden border border-gray-200"
+                     :class="{
+                         'border-l-4 border-green-500': notification.type === 'success',
+                         'border-l-4 border-red-500': notification.type === 'error',
+                         'border-l-4 border-yellow-500': notification.type === 'warning',
+                         'border-l-4 border-blue-500': notification.type === 'info'
+                     }">
+                    <div class="p-4">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-start space-x-3 flex-1">
+                                <div class="flex-shrink-0 mt-0.5">
+                                    <template x-if="notification.type === 'success'">
+                                        <div class="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-check text-green-600 text-xs"></i>
+                                        </div>
+                                    </template>
+                                    <template x-if="notification.type === 'error'">
+                                        <div class="w-5 h-5 bg-red-100 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-exclamation text-red-600 text-xs"></i>
+                                        </div>
+                                    </template>
+                                    <template x-if="notification.type === 'warning'">
+                                        <div class="w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-exclamation-triangle text-yellow-600 text-xs"></i>
+                                        </div>
+                                    </template>
+                                    <template x-if="notification.type === 'info'">
+                                        <div class="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-info text-blue-600 text-xs"></i>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900 notification-message" x-text="notification.message"></p>
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0 ml-2">
+                                <button @click="removeNotification(notification.id)" 
+                                        class="text-gray-400 hover:text-gray-600 transition-colors">
+                                    <i class="fas fa-times text-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+
+<script>
+function dmsApp() {
+    return {
+        // State
+        twinVersions: [],
+        selectedTwinVersion: null,
+        documents: [],
+        pagination: {},
+        totalDocuments: 0,
+        searchQuery: '',
+        statusFilter: '',
+        viewMode: 'grid',
+        isLoading: false,
+        
+        // Modals
+        showUploadModal: false,
+        showTwinVersionModal: false,
+        showSemanticSearch: false,
+        
+        // Forms
+        uploadForm: {
+            twin_version_id: '',
+            title: '',
+            description: '',
+            file: null
+        },
+        twinVersionForm: {
+            name: '',
+            version: '1.0',
+            description: ''
+        },
+        
+        // Search
+        semanticQuery: '',
+        semanticResults: [],
+        searchLoading: false,
+        uploadLoading: false,
+        createLoading: false,
+
+        async init() {
+            await this.loadTwinVersions();
+        },
+
+        async loadTwinVersions() {
+            try {
+                const response = await fetch('/api/twin-versions/');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const data = await response.json();
+                this.twinVersions = data.twin_versions || data;
+                console.log('Loaded twin versions:', this.twinVersions.length);
+                
+                // Auto-select first version if none selected
+                if (this.twinVersions.length > 0 && !this.selectedTwinVersion) {
+                    this.selectTwinVersion(this.twinVersions[0]);
+                }
+            } catch (error) {
+                console.error('Error loading twin versions:', error);
+                this.showNotification('Failed to load twin versions: ' + error.message, 'error');
+            }
+        },
+
+        selectTwinVersion(version) {
+            this.selectedTwinVersion = version;
+            this.uploadForm.twin_version_id = version.id;
+            this.loadDocuments();
+        },
+
+        async loadDocuments(page = 1) {
+            if (!this.selectedTwinVersion) return;
+            
+            this.isLoading = true;
+            try {
+                const params = new URLSearchParams({
+                    twin_version_id: this.selectedTwinVersion.id,
+                    page: page,
+                    per_page: 20
+                });
+                
+                if (this.searchQuery) params.append('search', this.searchQuery);
+                if (this.statusFilter) params.append('status', this.statusFilter);
+                
+                const response = await fetch(`/api/documents/?${params}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const data = await response.json();
+                
+                this.documents = data.documents || [];
+                this.pagination = data.pagination || {};
+                this.totalDocuments = data.pagination?.total_items || 0;
+                
+                // Update document count in selected twin version
+                if (this.selectedTwinVersion) {
+                    this.selectedTwinVersion.document_count = this.totalDocuments;
+                }
+            } catch (error) {
+                console.error('Error loading documents:', error);
+                this.showNotification('Failed to load documents: ' + error.message, 'error');
+                this.documents = [];
+                this.pagination = {};
+                this.totalDocuments = 0;
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        debouncedSearch: debounce(function() {
+            this.loadDocuments(1);
+        }, 500),
+
+        async uploadDocument() {
+            if (!this.uploadForm.file) {
+                this.showNotification('Please select a file', 'error');
+                return;
+            }
+            
+            if (!this.selectedTwinVersion || !this.selectedTwinVersion.id) {
+                this.showNotification('Please select a twin version first', 'error');
+                return;
+            }
+            
+            if (!this.uploadForm.title.trim()) {
+                this.showNotification('Please enter a document title', 'error');
+                return;
+            }
+            
+            this.uploadLoading = true;
+            try {
+                const formData = new FormData();
+                formData.append('twin_version_id', this.selectedTwinVersion.id);
+                formData.append('title', this.uploadForm.title.trim());
+                formData.append('description', this.uploadForm.description.trim());
+                formData.append('file', this.uploadForm.file);
+                
+                const response = await fetch('/api/documents/upload/', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    this.showUploadModal = false;
+                    this.resetUploadForm();
+                    this.loadDocuments();
+                    this.loadTwinVersions(); // Refresh to update document counts
+                    this.showNotification(`Document "${result.title}" uploaded successfully and is being processed`, 'success');
+                } else {
+                    const error = await response.json();
+                    this.showNotification(error.detail || error.message || 'Upload failed', 'error');
+                }
+            } catch (error) {
+                console.error('Error uploading document:', error);
+                this.showNotification('Upload failed: ' + error.message, 'error');
+            } finally {
+                this.uploadLoading = false;
+            }
+        },
+
+        async createTwinVersion() {
+            if (!this.twinVersionForm.name.trim()) {
+                this.showNotification('Please enter a name for the twin version', 'error');
+                return;
+            }
+            
+            if (!this.twinVersionForm.version.trim()) {
+                this.showNotification('Please enter a version number', 'error');
+                return;
+            }
+            
+            this.createLoading = true;
+            try {
+                const response = await fetch('/api/twin-versions/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name: this.twinVersionForm.name.trim(),
+                        version: this.twinVersionForm.version.trim(),
+                        description: this.twinVersionForm.description.trim()
+                    })
+                });
+                
+                if (response.ok) {
+                    const newVersion = await response.json();
+                    this.twinVersions.unshift(newVersion); // Add to beginning
+                    this.showTwinVersionModal = false;
+                    this.resetTwinVersionForm();
+                    this.showNotification(`Twin version "${newVersion.name}" created successfully`, 'success');
+                    
+                    // Auto-select the new version
+                    this.selectTwinVersion(newVersion);
+                } else {
+                    const error = await response.json();
+                    this.showNotification(error.detail || error.message || 'Creation failed', 'error');
+                }
+            } catch (error) {
+                console.error('Error creating twin version:', error);
+                this.showNotification('Creation failed: ' + error.message, 'error');
+            } finally {
+                this.createLoading = false;
+            }
+        },
+
+        async performSemanticSearch() {
+            if (!this.semanticQuery.trim()) {
+                this.showNotification('Please enter a search query', 'warning');
+                return;
+            }
+            
+            if (!this.selectedTwinVersion) {
+                this.showNotification('Please select a twin version first', 'warning');
+                return;
+            }
+            
+            this.searchLoading = true;
+            this.semanticResults = [];
+            
+            try {
+                const response = await fetch('/api/documents/search/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: this.semanticQuery.trim(),
+                        twin_version_id: this.selectedTwinVersion.id,
+                        top_k: 10
+                    })
+                });
+                
+                if (response.ok) {
+                    const results = await response.json();
+                    this.semanticResults = results || [];
+                    
+                    if (this.semanticResults.length === 0) {
+                        this.showNotification('No relevant documents found for your query', 'info');
+                    } else {
+                        this.showNotification(`Found ${this.semanticResults.length} relevant document sections`, 'success');
+                    }
+                } else {
+                    const error = await response.json();
+                    this.showNotification(error.detail || error.message || 'Search failed', 'error');
+                }
+            } catch (error) {
+                console.error('Error performing semantic search:', error);
+                this.showNotification('Search failed: ' + error.message, 'error');
+            } finally {
+                this.searchLoading = false;
+            }
+        },
+
+        async toggleDocumentStatus(document) {
+            const action = document.is_enabled ? 'disable' : 'enable';
+            
+            try {
+                const response = await fetch(`/api/documents/${document.id}/`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        is_enabled: !document.is_enabled
+                    })
+                });
+                
+                if (response.ok) {
+                    const updatedDoc = await response.json();
+                    document.is_enabled = updatedDoc.is_enabled;
+                    this.showNotification(
+                        `Document "${document.title}" ${action}d for chat successfully`,
+                        'success'
+                    );
+                } else {
+                    const error = await response.json();
+                    this.showNotification(error.detail || error.message || 'Update failed', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating document:', error);
+                this.showNotification('Update failed: ' + error.message, 'error');
+            }
+        },
+
+        async deleteDocument(document) {
+            const confirmMessage = `Are you sure you want to delete "${document.title}"?\n\nThis action cannot be undone and will remove:
+- The document file
+- All processed text chunks  
+- All generated embeddings
+- Chat history references`;
+            
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/documents/${document.id}/`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    // Remove from local array immediately for better UX
+                    const index = this.documents.findIndex(d => d.id === document.id);
+                    if (index !== -1) {
+                        this.documents.splice(index, 1);
+                        this.totalDocuments--;
+                    }
+                    
+                    this.loadTwinVersions(); // Refresh to update document counts
+                    this.showNotification(`Document "${document.title}" deleted successfully`, 'success');
+                } else {
+                    const error = await response.json();
+                    this.showNotification(error.detail || error.message || 'Delete failed', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting document:', error);
+                this.showNotification('Delete failed: ' + error.message, 'error');
+            }
+        },
+
+        // Add document viewer function
+        viewDocument(document) {
+            // Create a detailed view of the document
+            const detailsHtml = `
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div><strong>Title:</strong> ${document.title}</div>
+                        <div><strong>Status:</strong> <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${this.getStatusClass(document.status)}">${document.status}</span></div>
+                        <div><strong>File Size:</strong> ${this.formatFileSize(document.file_size)}</div>
+                        <div><strong>File Type:</strong> ${document.file_type.toUpperCase()}</div>
+                        <div><strong>Pages:</strong> ${document.page_count || 'N/A'}</div>
+                        <div><strong>Words:</strong> ${document.word_count || 'N/A'}</div>
+                        <div><strong>Uploaded:</strong> ${this.formatDate(document.uploaded_at)}</div>
+                        <div><strong>Chat Enabled:</strong> ${document.is_enabled ? 'Yes' : 'No'}</div>
+                    </div>
+                    ${document.description ? `<div><strong>Description:</strong><br>${document.description}</div>` : ''}
+                </div>
+            `;
+            
+            // You could implement a modal here or redirect to a detail page
+            alert(`Document Details:\n\n${document.title}\n\nStatus: ${document.status}\nSize: ${this.formatFileSize(document.file_size)}\nType: ${document.file_type}\nPages: ${document.page_count || 'N/A'}\nWords: ${document.word_count || 'N/A'}\nUploaded: ${this.formatDate(document.uploaded_at)}\nChat Enabled: ${document.is_enabled ? 'Yes' : 'No'}\n\nDescription: ${document.description || 'No description'}`);
+        },
+
+        changePage(page) {
+            if (page >= 1 && page <= this.pagination.total_pages) {
+                this.loadDocuments(page);
+            }
+        },
+
+        getPageNumbers() {
+            const current = this.pagination.current_page;
+            const total = this.pagination.total_pages;
+            const pages = [];
+            
+            for (let i = Math.max(1, current - 2); i <= Math.min(total, current + 2); i++) {
+                pages.push(i);
+            }
+            
+            return pages;
+        },
+
+        handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                this.uploadForm.file = null;
+                return;
+            }
+            
+            try {
+                this.validateFile(file);
+                this.uploadForm.file = file;
+                
+                // Auto-fill title if empty
+                if (!this.uploadForm.title) {
+                    const fileName = file.name.substring(0, file.name.lastIndexOf('.'));
+                    this.uploadForm.title = fileName.replace(/[_-]/g, ' ');
+                }
+                
+                this.showNotification(`File "${file.name}" selected successfully`, 'success');
+            } catch (error) {
+                this.uploadForm.file = null;
+                event.target.value = ''; // Clear the input
+                this.showNotification(error.message, 'error');
+            }
+        },
+
+        resetUploadForm() {
+            this.uploadForm = {
+                twin_version_id: this.selectedTwinVersion?.id || '',
+                title: '',
+                description: '',
+                file: null
+            };
+            // Clear the file input
+            const fileInput = document.querySelector('input[type="file"]');
+            if (fileInput) fileInput.value = '';
+        },
+
+        resetTwinVersionForm() {
+            this.twinVersionForm = {
+                name: '',
+                version: '1.0',
+                description: ''
+            };
+        },
+
+        // Utility functions
+        formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString();
+        },
+
+        formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        },
+
+        getFileTypeIcon(type) {
+            const icons = {
+                'pdf': 'fas fa-file-pdf',
+                'docx': 'fas fa-file-word',
+                'txt': 'fas fa-file-alt',
+                'other': 'fas fa-file'
+            };
+            return icons[type] || icons.other;
+        },
+
+        getFileTypeClass(type) {
+            const classes = {
+                'pdf': 'bg-red-100 text-red-600',
+                'docx': 'bg-blue-100 text-blue-600',
+                'txt': 'bg-gray-100 text-gray-600',
+                'other': 'bg-gray-100 text-gray-600'
+            };
+            return classes[type] || classes.other;
+        },
+
+        getStatusClass(status) {
+            const classes = {
+                'pending': 'bg-yellow-100 text-yellow-800',
+                'processing': 'bg-blue-100 text-blue-800',
+                'completed': 'bg-green-100 text-green-800',
+                'failed': 'bg-red-100 text-red-800'
+            };
+            return classes[status] || classes.pending;
+        },
+
+        showNotification(message, type = 'info') {
+            // Ensure we don't show duplicate notifications
+            const existingNotifications = document.querySelectorAll('.notification-message');
+            for (let notification of existingNotifications) {
+                if (notification.textContent === message) {
+                    return; // Don't show duplicate
+                }
+            }
+            
+            window.dispatchEvent(new CustomEvent('notify', {
+                detail: { 
+                    message, 
+                    type,
+                    timestamp: Date.now()
+                }
+            }));
+        },
+
+        // Enhanced debounced search with loading state
+        debouncedSearch: debounce(function() {
+            if (this.searchQuery.trim().length > 0) {
+                this.loadDocuments(1);
+            } else if (this.searchQuery === '') {
+                this.loadDocuments(1);
+            }
+        }, 300),
+
+        // Add refresh function for manual refresh
+        async refreshData() {
+            this.isLoading = true;
+            await Promise.all([
+                this.loadTwinVersions(),
+                this.selectedTwinVersion ? this.loadDocuments() : Promise.resolve()
+            ]);
+            this.showNotification('Data refreshed successfully', 'success');
+        },
+
+        // Enhanced file validation
+        validateFile(file) {
+            const maxSize = 50 * 1024 * 1024; // 50MB
+            const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'text/markdown'];
+            const allowedExtensions = ['.pdf', '.docx', '.txt', '.md'];
+            
+            if (file.size > maxSize) {
+                throw new Error('File size must be less than 50MB');
+            }
+            
+            const extension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+            if (!allowedExtensions.includes(extension)) {
+                throw new Error('File type not supported. Please use PDF, DOCX, TXT, or MD files');
+            }
+            
+            return true;
+        }
+    }
+}
+
+// Debounce function
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func.apply(this, args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+</script>
+
+<style>
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-clamp: 2;
+}
+
+/* Enhanced scrollbar for semantic search results */
+.semantic-results::-webkit-scrollbar {
+    width: 6px;
+}
+
+.semantic-results::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 10px;
+}
+
+.semantic-results::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+
+.semantic-results::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Loading animation improvements */
+@keyframes pulse-gentle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.pulse-gentle {
+    animation: pulse-gentle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+</style>
+{% endblock %}

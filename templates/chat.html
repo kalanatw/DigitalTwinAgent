@@ -115,6 +115,15 @@
                     </div>
                 </div>
                 
+                <!-- Action Buttons -->
+                <div class="flex items-center space-x-3">
+                    <a href="/email/" 
+                       class="button-ios bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-4 py-2.5 rounded-2xl transition-all duration-200 shadow-lg flex items-center space-x-2">
+                        <i class="fas fa-envelope text-sm"></i>
+                        <span class="text-sm font-medium">Email Automation</span>
+                    </a>
+                </div>
+                
                 <!-- Twin Version Selector with High Z-Index -->
                 <div class="relative z-50" x-data="{ open: false }">
                     <button @click="open = !open" 
@@ -227,6 +236,100 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Gmail Authentication (shown when not configured) -->
+        <div x-show="!emailStatus.configured || gmailAuthError" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 transform -translate-y-4"
+             x-transition:enter-end="opacity-100 transform translate-y-0"
+             class="glass-morphism rounded-3xl p-4 mb-6 border border-white/20">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl flex items-center justify-center mr-4">
+                        <i class="fab fa-google text-white"></i>
+                    </div>
+                    <div>
+                        <div class="font-semibold text-gray-900" x-text="gmailAuthError ? 'Gmail Authentication Required' : 'Connect Gmail'"></div>
+                        <div class="text-sm text-gray-600" x-text="gmailAuthError ? 'Your Gmail tokens have expired. Please re-authenticate.' : 'Authenticate with Gmail to view real emails'"></div>
+                    </div>
+                </div>
+                <div class="flex space-x-2">
+                    <button x-show="gmailAuthError" 
+                            @click="clearTokensAndReauth()" 
+                            :disabled="gmailAuthenticating"
+                            class="bg-orange-500 text-white px-4 py-2 rounded-xl font-medium hover:shadow-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-50">
+                        <i class="fas fa-trash mr-2"></i>
+                        Clear & Re-auth
+                    </button>
+                    <button @click="authenticateGmail()" 
+                            :disabled="gmailAuthenticating"
+                            class="bg-gradient-to-r from-red-500 to-pink-600 text-white px-6 py-3 rounded-2xl font-medium hover:shadow-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-50">
+                        <i class="fab fa-google mr-2" :class="{ 'fa-spin': gmailAuthenticating }"></i>
+                        <span x-text="gmailAuthenticating ? 'Connecting...' : (gmailAuthError ? 'Re-authenticate' : 'Connect Gmail')"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Email Status Panel -->
+        <div x-show="emailStatus.configured" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 transform -translate-y-4"
+             x-transition:enter-end="opacity-100 transform translate-y-0"
+             class="glass-morphism rounded-3xl p-4 mb-6 border border-white/20">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-600 rounded-2xl flex items-center justify-center mr-4">
+                        <i class="fas fa-envelope text-white"></i>
+                    </div>
+                    <div>
+                        <div class="font-semibold text-gray-900">Email Automation</div>
+                        <div class="text-sm text-gray-600" x-text="emailStatus.email_address"></div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-right">
+                        <div class="text-lg font-bold text-green-600" x-text="emailStatus.stats?.responded || 0"></div>
+                        <div class="text-xs text-gray-500">Responses</div>
+                    </div>
+                    <button @click="toggleAutoReply()" 
+                            class="button-ios px-4 py-2 rounded-xl text-sm"
+                            :class="emailStatus.auto_reply_enabled ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'">
+                        <i class="fas fa-power-off mr-2"></i>
+                        <span x-text="emailStatus.auto_reply_enabled ? 'ON' : 'OFF'"></span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Recent Email Messages -->
+            <div x-show="emailStatus.messages && emailStatus.messages.length > 0" class="space-y-2">
+                <div class="text-sm font-medium text-gray-700 mb-2">Recent Email Activity</div>
+                <template x-for="email in emailStatus.messages.slice(0, 3)" :key="email.id">
+                    <div @click="viewEmailThread(email.id)" 
+                         class="p-3 bg-white/50 rounded-xl cursor-pointer hover:bg-white/70 transition-colors">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-sm font-medium text-gray-900" x-text="email.sender"></span>
+                                    <span class="px-2 py-1 rounded-full text-xs"
+                                          :class="email.status === 'responded' ? 'bg-green-100 text-green-700' : 
+                                                  email.status === 'processing' ? 'bg-yellow-100 text-yellow-700' : 
+                                                  'bg-blue-100 text-blue-700'"
+                                          x-text="email.status"></span>
+                                    <span x-show="email.is_from_validated_sender" 
+                                          class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
+                                        ✓ Validated
+                                    </span>
+                                </div>
+                                <div class="text-sm text-gray-600 truncate" x-text="email.subject"></div>
+                            </div>
+                            <div class="text-xs text-gray-500" x-text="formatTime(email.received_at)"></div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+        
         <!-- Chat Container with Enhanced iOS 17 Design -->
         <div class="glass-morphism rounded-3xl shadow-2xl flex flex-col border border-white/20 overflow-hidden" style="height: calc(100vh - 280px); min-height: 500px;">
             <!-- Messages Area with Enhanced Styling -->
@@ -404,17 +507,70 @@ function chatApp() {
         // Twin Version state
         twinVersions: [],
         selectedTwinVersion: null,
+        
+        // Email status state
+        emailStatus: {
+            configured: false,
+            email_address: '',
+            auto_reply_enabled: false,
+            messages: [],
+            stats: {}
+        },
+        
+        // Gmail authentication state
+        gmailAuthenticating: false,
+        gmailAuthError: false,
+        gmailAuthError: false,
 
         // Initialize the component
         async init() {
             // Generate session ID first
             this.sessionId = this.getStoredSessionId() || this.generateSessionId();
+            
+            // Check for OAuth callback parameters
+            this.handleOAuthCallback();
+            
             // Load twin versions
             await this.loadTwinVersions();
+            // Load email status
+            await this.loadEmailStatus();
             // Load conversation history if available
             this.loadHistory();
             // Check connection status
             this.checkConnection();
+            // Start email status polling
+            this.startEmailPolling();
+        },
+
+        // Handle OAuth callback parameters
+        handleOAuthCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const gmailAuth = urlParams.get('gmail_auth');
+            const error = urlParams.get('error');
+            
+            if (gmailAuth === 'success') {
+                this.addMessage('assistant', '✅ Gmail connected successfully! You can now view real emails from your Gmail inbox.');
+                // Reload email status to show the new configuration
+                setTimeout(() => this.loadEmailStatus(), 1000);
+                
+                // Clean up URL parameters
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, newUrl);
+            } else if (error) {
+                const errorMessages = {
+                    'oauth_denied': 'Gmail authentication was cancelled.',
+                    'no_code': 'No authorization code received from Gmail.',
+                    'token_exchange_failed': 'Failed to exchange authorization code for tokens.',
+                    'oauth_callback_failed': 'OAuth callback failed. Please try again.'
+                };
+                
+                const errorMessage = errorMessages[error] || 'Unknown authentication error.';
+                this.addMessage('assistant', `❌ Gmail authentication failed: ${errorMessage}`);
+                
+                // Clean up URL parameters
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, newUrl);
+            }
         },
 
         // Load twin versions
@@ -615,6 +771,188 @@ function chatApp() {
             if (this.messages.length === 0) {
                 this.addMessage('assistant', 'Hello! I\'m your Digital Twin Assistant. I can help you with sensor data, system status, and document queries. Select a twin version to access specific documents.');
             }
+        },
+
+        // Email Status Functions
+        async loadEmailStatus() {
+            try {
+                const response = await fetch('/api/email/status/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        this.emailStatus = data;
+                        this.gmailAuthError = false; // Clear error if status loaded successfully
+                    }
+                } else {
+                    // Check if this might be an authentication error
+                    this.gmailAuthError = true;
+                }
+            } catch (error) {
+                console.warn('Failed to load email status:', error);
+                // If there's an error loading email status, it might be auth-related
+                this.gmailAuthError = true;
+            }
+        },
+
+        // Gmail Authentication Functions
+        async authenticateGmail() {
+            try {
+                this.gmailAuthenticating = true;
+                
+                // Get OAuth URL
+                const response = await fetch('/api/email/oauth/', {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                });
+                
+                if (response.ok) {
+                    // Redirect to OAuth URL
+                    window.location.href = response.url;
+                } else {
+                    throw new Error('Failed to get OAuth URL');
+                }
+            } catch (error) {
+                console.error('Gmail authentication failed:', error);
+                this.addMessage('assistant', '❌ Failed to connect to Gmail. Please try again.');
+            } finally {
+                this.gmailAuthenticating = false;
+            }
+        },
+
+        async clearTokensAndReauth() {
+            try {
+                this.gmailAuthenticating = true;
+                
+                // Clear invalid tokens first
+                const clearResponse = await fetch('/api/email/clear-tokens/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                });
+                
+                if (clearResponse.ok) {
+                    this.gmailAuthError = false;
+                    this.addMessage('assistant', '🔄 Cleared invalid tokens. Starting re-authentication...');
+                    
+                    // Wait a moment then redirect to OAuth
+                    setTimeout(() => {
+                        this.authenticateGmail();
+                    }, 1000);
+                } else {
+                    throw new Error('Failed to clear tokens');
+                }
+            } catch (error) {
+                console.error('Failed to clear tokens:', error);
+                this.addMessage('assistant', '❌ Failed to clear tokens. Please try again.');
+            } finally {
+                this.gmailAuthenticating = false;
+            }
+        },
+
+        async toggleAutoReply() {
+            try {
+                const response = await fetch('/api/email/toggle/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        this.emailStatus.auto_reply_enabled = data.auto_reply_enabled;
+                        this.addMessage('assistant', `📧 Auto-reply ${data.auto_reply_enabled ? 'enabled' : 'disabled'}`);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to toggle auto-reply:', error);
+            }
+        },
+
+        async viewEmailThread(emailId) {
+            try {
+                const response = await fetch('/api/email/thread/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({ email_id: emailId })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.email_thread) {
+                        // Add email thread to chat
+                        data.email_thread.forEach(msg => {
+                            this.addMessage(msg.role, msg.content, msg.email_metadata);
+                        });
+                        this.scrollToBottom();
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load email thread:', error);
+            }
+        },
+
+        startEmailPolling() {
+            // Poll for new emails every 30 seconds
+            setInterval(async () => {
+                await this.loadEmailStatus();
+                await this.checkForNewEmails();
+            }, 30000);
+        },
+
+        async checkForNewEmails() {
+            if (!this.emailStatus.configured) return;
+            
+            try {
+                const response = await fetch('/api/email/check/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.processed_count > 0) {
+                        this.addMessage('assistant', `📧 Processed ${data.processed_count} new email(s)`);
+                        await this.loadEmailStatus(); // Refresh status
+                    }
+                }
+            } catch (error) {
+                console.warn('Failed to check emails:', error);
+            }
+        },
+
+        formatTime(isoString) {
+            const date = new Date(isoString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins}m ago`;
+            if (diffHours < 24) return `${diffHours}h ago`;
+            if (diffDays < 7) return `${diffDays}d ago`;
+            return date.toLocaleDateString();
         },
 
         // Check connection status

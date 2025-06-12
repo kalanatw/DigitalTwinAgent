@@ -3,15 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Digital Twin Assistant{% endblock %}</title>
+    <title>{% block title %}RAGAgent{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
-        /* iOS 17 Inspired Styles */
+        /* Modern Design System */
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --secondary: #8b5cf6;
+            --accent: #06b6d4;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+        
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         
         /* Glass morphism effect */
@@ -21,26 +42,170 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
         
-        /* Enhanced scrollbar with iOS styling */
-        .chat-container::-webkit-scrollbar {
-            width: 8px;
+        .glass-strong {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
         }
-        .chat-container::-webkit-scrollbar-track {
+        
+        /* Modern scrollbar */
+        .modern-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .modern-scrollbar::-webkit-scrollbar-track {
             background: rgba(0, 0, 0, 0.05);
             border-radius: 10px;
         }
-        .chat-container::-webkit-scrollbar-thumb {
+        .modern-scrollbar::-webkit-scrollbar-thumb {
             background: rgba(0, 0, 0, 0.2);
             border-radius: 10px;
-            border: 2px solid transparent;
-            background-clip: content-box;
         }
-        .chat-container::-webkit-scrollbar-thumb:hover {
+        .modern-scrollbar::-webkit-scrollbar-thumb:hover {
             background: rgba(0, 0, 0, 0.3);
-            background-clip: content-box;
         }
         
-        /* Enhanced typing animation */
+        /* Modern button styles */
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+            font-weight: 500;
+            padding: 12px 24px;
+            border-radius: 12px;
+            transition: all 0.2s;
+            transform: scale(1);
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+        }
+        
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: scale(1.05);
+        }
+        
+        .btn-primary:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-weight: 500;
+            padding: 12px 24px;
+            border-radius: 12px;
+            transition: all 0.2s;
+            transform: scale(1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+        
+        .btn-secondary:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            transform: scale(1);
+        }
+        
+        .btn-icon:hover {
+            transform: scale(1.05);
+        }
+        
+        .btn-icon:active {
+            transform: scale(0.95);
+        }
+        
+        /* Navbar styles */
+        .navbar {
+            backdrop-filter: blur(20px);
+            background: rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Modal animations */
+        .modal-enter {
+            animation: modalEnter 0.3s ease-out;
+        }
+        
+        .modal-leave {
+            animation: modalLeave 0.3s ease-in;
+        }
+        
+        @keyframes modalEnter {
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        
+        @keyframes modalLeave {
+            from {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: scale(0.9) translateY(-20px);
+            }
+        }
+        
+        /* Mobile responsive typography */
+        .text-responsive-xl {
+            font-size: 1.5rem;
+        }
+        
+        .text-responsive-lg {
+            font-size: 1.125rem;
+        }
+        
+        @media (min-width: 768px) {
+            .text-responsive-xl {
+                font-size: 1.875rem;
+            }
+            .text-responsive-lg {
+                font-size: 1.25rem;
+            }
+        }
+        
+        @media (min-width: 1024px) {
+            .text-responsive-xl {
+                font-size: 2.25rem;
+            }
+            .text-responsive-lg {
+                font-size: 1.5rem;
+            }
+        }
+        
+        /* Loading animation */
+        .loading-spinner {
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 2px solid #fff;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Typing animation */
         .typing-indicator {
             display: inline-flex;
             align-items: center;
@@ -140,7 +305,7 @@
                             <div class="w-8 h-8 bg-gradient-to-br from-white to-white/80 rounded-full flex items-center justify-center mr-3">
                                 <i class="fas fa-cogs text-indigo-600 text-sm"></i>
                             </div>
-                            Digital Twin Assistant
+                            RAGAgent
                         </h1>
                     </div>
                 </div>
@@ -168,8 +333,8 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div class="space-y-4">
-                    <h3 class="text-xl font-semibold">Digital Twin Assistant</h3>
-                    <p class="text-white/80 leading-relaxed">Advanced AI-powered digital twin monitoring and analysis platform with real-time insights.</p>
+                    <h3 class="text-xl font-semibold">RAGAgent Instance</h3>
+                    <p class="text-white/80 leading-relaxed">Advanced AI-powered RAG system with real-time insights and intelligent automation.</p>
                 </div>
                 <div class="space-y-4">
                     <h3 class="text-xl font-semibold">Features</h3>

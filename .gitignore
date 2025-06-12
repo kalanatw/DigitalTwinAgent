@@ -6,6 +6,7 @@ logs/
 .env
 .env.local
 .env.*.local
+google_oauth_config.json
 
 # Python
 __pycache__/

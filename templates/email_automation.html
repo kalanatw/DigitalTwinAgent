@@ -1,0 +1,600 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{% csrf_token %}
+<style>
+/* Force full width for email automation page - comprehensive override */
+body, html, main, .container, .main-content, .max-w-7xl {
+    max-width: 100vw !important;
+    width: 100% !important;
+}
+
+/* Reset any margin/padding constraints */
+body {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Override specific Tailwind max-width classes */
+.max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl, .max-w-3xl, .max-w-2xl, .max-w-xl, .max-w-lg, .max-w-md, .max-w-sm {
+    max-width: 100vw !important;
+}
+
+/* Ensure main container uses full width */
+.min-h-screen {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    padding: 1rem !important;
+}
+
+/* Override mx-auto centering for this page */
+.mx-auto {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+</style>
+<div class="min-h-screen w-full p-4 md:p-6" x-data="emailAutomationApp()">
+    <!-- Header Section -->
+    <div class="glass-strong rounded-2xl p-4 md:p-6 mb-6">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div class="flex-shrink-0">
+                <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">RAGAgent Email Automation</h2>
+                <p class="text-white/70 text-sm md:text-base">Monitor incoming emails and AI-generated responses</p>
+            </div>
+            <div class="flex flex-wrap gap-2 md:gap-3">
+                <button @click="refreshEmails()" 
+                        :disabled="isLoading"
+                        class="btn-secondary text-xs md:text-sm px-3 md:px-5 py-2 md:py-3 disabled:opacity-50 flex-shrink-0">
+                    <i class="fas fa-sync-alt mr-1 md:mr-2" :class="{ 'fa-spin': isLoading }"></i>
+                    <span class="hidden sm:inline">Refresh</span>
+                </button>
+                <button @click="createTestEmails()" 
+                        class="btn-secondary text-xs md:text-sm px-3 md:px-5 py-2 md:py-3 flex-shrink-0">
+                    <i class="fas fa-flask mr-1 md:mr-2"></i>
+                    <span class="hidden sm:inline">Test Emails</span>
+                </button>
+                <button @click="setupEmail()" 
+                        class="btn-secondary text-xs md:text-sm px-3 md:px-5 py-2 md:py-3 flex-shrink-0">
+                    <i class="fas fa-cog mr-1 md:mr-2"></i>
+                    <span class="hidden sm:inline">Setup</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Validated Senders Info -->
+    <div class="glass-strong rounded-2xl p-4 md:p-6 mb-6" x-show="validatedSenders.length > 0">
+        <h3 class="text-base md:text-lg font-semibold text-white mb-4">Validated Email Senders</h3>
+        <div class="flex flex-wrap gap-2 md:gap-3">
+            <template x-for="sender in validatedSenders" :key="sender.email_address">
+                <div class="bg-green-400/20 border border-green-400/30 rounded-xl px-3 py-2 flex items-center space-x-2 text-sm">
+                    <div class="w-2 h-2 bg-green-400 rounded-full flex-shrink-0"></div>
+                    <span class="text-green-100 font-medium truncate" x-text="sender.name || sender.email_address"></span>
+                    <span class="text-green-200/80 text-xs hidden md:inline" x-text="sender.email_address" x-show="sender.name"></span>
+                </div>
+            </template>
+        </div>
+        <p class="text-sm text-white/60 mt-3">
+            <i class="fas fa-info-circle mr-1"></i>
+            Only emails from these validated senders will be processed automatically.
+        </p>
+    </div>
+
+    <!-- Email Status Dashboard -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6">
+        <div class="glass-strong rounded-2xl p-4 md:p-6">
+            <div class="flex items-center">
+                <div class="w-10 h-10 md:w-12 md:h-12 bg-blue-400/20 rounded-full flex items-center justify-center mr-3 md:mr-4 flex-shrink-0">
+                    <i class="fas fa-envelope text-blue-300 text-lg md:text-xl"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <h3 class="text-xs md:text-sm font-medium text-white/70">Total Received</h3>
+                    <p class="text-xl md:text-2xl font-bold text-white" x-text="emailStats.total"></p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="glass-strong rounded-2xl p-4 md:p-6">
+            <div class="flex items-center">
+                <div class="w-10 h-10 md:w-12 md:h-12 bg-green-400/20 rounded-full flex items-center justify-center mr-3 md:mr-4 flex-shrink-0">
+                    <i class="fas fa-check text-green-300 text-lg md:text-xl"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <h3 class="text-xs md:text-sm font-medium text-white/70">Responses Sent</h3>
+                    <p class="text-xl md:text-2xl font-bold text-white" x-text="emailStats.sent"></p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="glass-strong rounded-2xl p-4 md:p-6 sm:col-span-2 lg:col-span-1">
+            <div class="flex items-center">
+                <div class="w-10 h-10 md:w-12 md:h-12 bg-yellow-400/20 rounded-full flex items-center justify-center mr-3 md:mr-4 flex-shrink-0">
+                    <i class="fas fa-clock text-yellow-300 text-lg md:text-xl"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <h3 class="text-xs md:text-sm font-medium text-white/70">Pending</h3>
+                    <p class="text-xl md:text-2xl font-bold text-white" x-text="emailStats.pending"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Inbox -->
+    <div class="glass-strong rounded-2xl overflow-hidden">
+        <div class="p-4 md:p-6 border-b border-white/10">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <h3 class="text-lg md:text-xl font-semibold text-white">Email Inbox</h3>
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <span class="text-sm text-white/60" x-text="`${emails.length} messages`"></span>
+                    <button @click="generateAllResponses()" 
+                            :disabled="isGenerating"
+                            class="btn-primary text-xs md:text-sm px-3 md:px-4 py-2 disabled:opacity-50 whitespace-nowrap">
+                        <i class="fas fa-magic mr-1" :class="{ 'fa-spin': isGenerating }"></i>
+                        <span class="hidden sm:inline">Generate All</span>
+                        <span class="sm:hidden">Generate</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="overflow-y-auto" style="max-height: 70vh;">
+            <template x-for="email in emails" :key="email.id">
+                <div class="border-b border-white/5 hover:bg-white/5 transition-colors"
+                     :class="{ 'bg-blue-400/10': selectedEmail?.id === email.id }">
+                    
+                    <!-- Email Header (always visible) -->
+                    <div class="p-3 md:p-4 cursor-pointer" @click="toggleEmailExpansion(email)">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="flex items-center flex-1 min-w-0">
+                                <div class="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center mr-3 flex-shrink-0"
+                                     :class="{
+                                         'bg-green-400/20': email.response_sent,
+                                         'bg-yellow-400/20': email.status === 'processing',
+                                         'bg-blue-400/20': email.status === 'received',
+                                         'bg-red-400/20': email.status === 'failed'
+                                     }">
+                                    <i class="text-xs md:text-sm"
+                                       :class="{
+                                           'fas fa-check text-green-300': email.response_sent,
+                                           'fas fa-clock text-yellow-300': email.status === 'processing',
+                                           'fas fa-envelope text-blue-300': email.status === 'received',
+                                           'fas fa-exclamation text-red-300': email.status === 'failed'
+                                       }"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <h4 class="font-semibold text-white truncate text-sm md:text-base" x-text="email.sender"></h4>
+                                        <span class="text-xs text-white/50 whitespace-nowrap flex-shrink-0" x-text="formatTime(email.received_at)"></span>
+                                    </div>
+                                    <h5 class="font-medium text-white/80 truncate mt-1 text-sm" x-text="email.subject"></h5>
+                                    <p class="text-white/60 text-xs md:text-sm truncate mt-1" x-text="email.body"></p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 flex-shrink-0">
+                                <!-- Quick Action Buttons -->
+                                <button x-show="email.ai_response && !email.response_sent" 
+                                        @click.stop="sendResponse(email)"
+                                        :disabled="isSending"
+                                        class="bg-green-500 hover:bg-green-600 text-white px-2 md:px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 disabled:opacity-50">
+                                    <i class="fas fa-paper-plane mr-1"></i><span class="hidden sm:inline">Send</span>
+                                </button>
+                                <button x-show="!email.ai_response" 
+                                        @click.stop="generateResponse(email)"
+                                        :disabled="isGenerating"
+                                        class="bg-blue-500 hover:bg-blue-600 text-white px-2 md:px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 disabled:opacity-50">
+                                    <i class="fas fa-magic mr-1"></i><span class="hidden sm:inline">Generate</span>
+                                </button>
+                                <i class="fas fa-chevron-down text-white/40 transition-transform duration-200 text-sm"
+                                   :class="{ 'rotate-180': email.expanded }"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Expanded Email Content -->
+                    <div x-show="email.expanded" 
+                         x-transition:enter="transition ease-out duration-300"
+                         x-transition:enter-start="opacity-0 max-h-0"
+                         x-transition:enter-end="opacity-100 max-h-screen"
+                         x-transition:leave="transition ease-in duration-200"
+                         x-transition:leave-start="opacity-100 max-h-screen"
+                         x-transition:leave-end="opacity-0 max-h-0"
+                         class="px-3 md:px-4 pb-3 md:pb-4">
+                        
+                        <!-- Full Email Body -->
+                        <div class="bg-white/10 rounded-xl p-3 md:p-4 mb-4">
+                            <h6 class="font-medium text-white mb-2 text-sm md:text-base">Original Message</h6>
+                            <div class="text-white/80 text-sm whitespace-pre-wrap break-words max-h-40 overflow-y-auto modern-scrollbar" x-text="email.body"></div>
+                        </div>
+                        
+                        <!-- AI Response Section -->
+                        <div x-show="email.ai_response" class="bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-xl p-3 md:p-4 mb-4">
+                            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
+                                <div class="flex items-center">
+                                    <div class="w-6 h-6 md:w-8 md:h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mr-2 md:mr-3 flex-shrink-0">
+                                        <i class="fas fa-robot text-white text-xs"></i>
+                                    </div>
+                                    <h6 class="font-medium text-white text-sm md:text-base">AI Generated Response</h6>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <button @click="toggleResponseView(email)" 
+                                            class="bg-white/20 hover:bg-white/30 text-white px-2 md:px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200">
+                                        <i class="fas fa-eye mr-1"></i><span x-text="email.showHtmlPreview ? 'Text' : 'Preview'"></span>
+                                    </button>
+                                    <button @click="editResponse(email)" 
+                                            class="bg-blue-500 hover:bg-blue-600 text-white px-2 md:px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200">
+                                        <i class="fas fa-edit mr-1"></i>Edit
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Response Content with Toggle -->
+                            <div class="mb-4">
+                                <!-- Text Version -->
+                                <div x-show="!email.showHtmlPreview">
+                                    <div class="text-white/90 text-sm whitespace-pre-wrap break-words max-h-60 overflow-y-auto modern-scrollbar" x-text="email.text_response || email.ai_response"></div>
+                                </div>
+                                
+                                <!-- HTML Preview -->
+                                <div x-show="email.showHtmlPreview" class="border border-white/20 rounded-lg p-2 md:p-3 bg-white/10 max-h-60 overflow-y-auto modern-scrollbar">
+                                    <div x-html="email.html_response || email.ai_response" class="text-sm text-white/90"></div>
+                                </div>
+                                
+                                <!-- Subject Line Preview -->
+                                <div x-show="email.response_subject" class="mt-3 p-2 md:p-3 bg-blue-400/20 rounded-lg">
+                                    <span class="text-xs text-blue-200 font-medium">Subject: </span>
+                                    <span class="text-sm text-blue-100 break-words" x-text="email.response_subject"></span>
+                                </div>
+                            </div>
+                            
+                            <!-- Response Status -->
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div x-show="email.response_sent" class="flex items-center text-green-300 text-sm font-medium">
+                                    <i class="fas fa-check-circle mr-2"></i>
+                                    Response sent successfully
+                                </div>
+                                <div x-show="!email.response_sent" class="flex items-center text-orange-300 text-sm">
+                                    <i class="fas fa-clock mr-2"></i>
+                                    Ready to send
+                                </div>
+                                
+                                <button x-show="!email.response_sent" 
+                                        @click="sendResponse(email)"
+                                        :disabled="isSending"
+                                        class="bg-green-500 hover:bg-green-600 text-white px-3 md:px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-50 flex items-center self-start sm:self-auto">
+                                    <i class="fas fa-paper-plane mr-2" :class="{ 'fa-spin': isSending && selectedEmail?.id === email.id }"></i>
+                                    Send Response
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Generate Response Section -->
+                        <div x-show="!email.ai_response" class="bg-yellow-400/20 border border-yellow-400/30 rounded-xl p-3 md:p-4">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div class="flex items-center text-yellow-200">
+                                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                                    <span class="text-sm font-medium">No response generated yet</span>
+                                </div>
+                                <button @click="generateResponse(email)"
+                                        :disabled="isGenerating"
+                                        class="bg-blue-500 hover:bg-blue-600 text-white px-3 md:px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-50 flex items-center self-start sm:self-auto">
+                                    <i class="fas fa-magic mr-2" :class="{ 'fa-spin': isGenerating && selectedEmail?.id === email.id }"></i>
+                                    Generate Response
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+            
+            <!-- Empty State -->
+            <div x-show="emails.length === 0 && !isLoading" class="p-8 md:p-12 text-center">
+                <div class="w-12 h-12 md:w-16 md:h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-inbox text-white/60 text-xl md:text-2xl"></i>
+                </div>
+                <h3 class="text-base md:text-lg font-medium text-white mb-2">No emails found</h3>
+                <div x-show="!hasEmailAccount">
+                    <p class="text-white/60 mb-4 text-sm md:text-base">Set up email integration to start receiving and processing emails automatically.</p>
+                    <button @click="setupEmail()" 
+                            class="btn-primary px-4 md:px-6 py-2 md:py-3 text-sm md:text-base">
+                        <i class="fas fa-cog mr-2"></i>Setup Google Email Integration
+                    </button>
+                </div>
+                <div x-show="hasEmailAccount">
+                    <p class="text-white/60 mb-4 text-sm md:text-base">No emails received from validated senders yet. You can create test emails to see how the system works.</p>
+                    <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                        <button @click="createTestEmails()" 
+                                class="btn-secondary px-4 md:px-6 py-2 md:py-3 text-sm md:text-base">
+                            <i class="fas fa-flask mr-2"></i>Create Test Emails
+                        </button>
+                        <button @click="refreshEmails()" 
+                                class="btn-primary px-4 md:px-6 py-2 md:py-3 text-sm md:text-base">
+                            <i class="fas fa-sync-alt mr-2"></i>Check for New Emails
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Loading State -->
+            <div x-show="isLoading" class="p-8 md:p-12 text-center">
+                <div class="loading-spinner mx-auto mb-4"></div>
+                <p class="text-white/60 text-sm md:text-base">Loading emails...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Response Modal -->
+    <div x-show="showEditModal" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="glass-strong rounded-2xl p-4 md:p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto"
+             @click.away="closeEditModal()">
+            <h3 class="text-lg md:text-xl font-semibold text-white mb-4">Edit Response</h3>
+            <textarea x-model="editingResponse" 
+                      class="w-full h-32 md:h-48 p-3 md:p-4 bg-white/10 border border-white/20 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-white/50"
+                      placeholder="Edit the AI response..."></textarea>
+            <div class="flex flex-col sm:flex-row gap-3 sm:justify-end mt-4">
+                <button @click="closeEditModal()" 
+                        class="btn-secondary px-4 py-2 text-sm order-2 sm:order-1">
+                    Cancel
+                </button>
+                <button @click="saveEditedResponse()" 
+                        class="btn-primary px-4 py-2 text-sm order-1 sm:order-2">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function emailAutomationApp() {
+    return {
+        emails: [],
+        validatedSenders: [],
+        hasEmailAccount: false,
+        emailStats: {
+            total: 0,
+            sent: 0,
+            pending: 0
+        },
+        isLoading: false,
+        isSending: false,
+        isGenerating: false,
+        showEditModal: false,
+        editingEmail: null,
+        editingResponse: '',
+        selectedEmail: null,
+        
+        init() {
+            this.loadEmails();
+            // Auto-refresh every 30 seconds
+            setInterval(() => {
+                this.loadEmails();
+            }, 30000);
+        },
+        
+        async loadEmails() {
+            this.isLoading = true;
+            try {
+                const response = await fetch('/api/email/messages/');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.emails = data.emails || [];
+                    this.validatedSenders = data.validated_senders || [];
+                    this.hasEmailAccount = data.has_email_account || false;
+                    this.updateStats();
+                } else {
+                    console.error('Failed to load emails');
+                }
+            } catch (error) {
+                console.error('Error loading emails:', error);
+            } finally {
+                this.isLoading = false;
+            }
+        },
+        
+        async refreshEmails() {
+            this.isLoading = true;
+            try {
+                // First check for new emails
+                const checkResponse = await fetch('/api/email/check/', { method: 'POST' });
+                if (checkResponse.ok) {
+                    // Then reload the list
+                    await this.loadEmails();
+                }
+            } catch (error) {
+                console.error('Error refreshing emails:', error);
+            } finally {
+                this.isLoading = false;
+            }
+        },
+        
+        async createTestEmails() {
+            this.isLoading = true;
+            try {
+                const response = await fetch('/api/email/create-test-emails/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken()
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        alert(`Successfully created ${data.emails.length} test emails!`);
+                        await this.loadEmails(); // Reload the emails list
+                    } else {
+                        alert(`Error creating test emails: ${data.error}`);
+                    }
+                } else {
+                    alert('Failed to create test emails');
+                }
+            } catch (error) {
+                console.error('Error creating test emails:', error);
+                alert('Error creating test emails');
+            } finally {
+                this.isLoading = false;
+            }
+        },
+        
+        toggleEmailExpansion(email) {
+            email.expanded = !email.expanded;
+            if (email.expanded) {
+                this.selectedEmail = email;
+            } else if (this.selectedEmail?.id === email.id) {
+                this.selectedEmail = null;
+            }
+        },
+        
+        toggleResponseView(email) {
+            email.showHtmlPreview = !email.showHtmlPreview;
+        },
+        
+        async generateResponse(email) {
+            this.isGenerating = true;
+            this.selectedEmail = email;
+            try {
+                const response = await fetch(`/api/email/generate-response/${email.id}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken()
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    // Handle both old format and new enhanced format
+                    if (data.response) {
+                        email.ai_response = data.response;
+                        email.response_subject = data.subject || `Re: ${email.subject}`;
+                        email.text_response = data.text_response || data.response;
+                        email.html_response = data.response; // This is the HTML version
+                        email.email_type = data.email_type || 'database';
+                        email.status = 'received'; // Update status to show response is ready
+                    }
+                } else {
+                    alert('Failed to generate response');
+                }
+            } catch (error) {
+                console.error('Error generating response:', error);
+                alert('Error generating response');
+            } finally {
+                this.isGenerating = false;
+                this.selectedEmail = null;
+            }
+        },
+        
+        async generateAllResponses() {
+            const emailsWithoutResponse = this.emails.filter(e => !e.ai_response);
+            if (emailsWithoutResponse.length === 0) {
+                alert('All emails already have responses generated');
+                return;
+            }
+            
+            this.isGenerating = true;
+            try {
+                for (const email of emailsWithoutResponse) {
+                    await this.generateResponse(email);
+                }
+                alert(`Generated responses for ${emailsWithoutResponse.length} emails`);
+            } catch (error) {
+                console.error('Error generating all responses:', error);
+                alert('Error generating all responses');
+            } finally {
+                this.isGenerating = false;
+            }
+        },
+        
+        async sendResponse(email) {
+            this.isSending = true;
+            try {
+                const response = await fetch(`/api/email/send-response/${email.id}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken()
+                    }
+                });
+                
+                if (response.ok) {
+                    email.response_sent = true;
+                    email.status = 'responded';
+                    this.updateStats();
+                } else {
+                    alert('Failed to send response');
+                }
+            } catch (error) {
+                console.error('Error sending response:', error);
+                alert('Error sending response');
+            } finally {
+                this.isSending = false;
+            }
+        },
+        
+        editResponse(email) {
+            this.editingEmail = email;
+            this.editingResponse = email.ai_response;
+            this.showEditModal = true;
+        },
+        
+        async saveEditedResponse() {
+            try {
+                const response = await fetch(`/api/email/update-response/${this.editingEmail.id}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken()
+                    },
+                    body: JSON.stringify({
+                        response: this.editingResponse
+                    })
+                });
+                
+                if (response.ok) {
+                    this.editingEmail.ai_response = this.editingResponse;
+                    this.closeEditModal();
+                } else {
+                    alert('Failed to update response');
+                }
+            } catch (error) {
+                console.error('Error updating response:', error);
+                alert('Error updating response');
+            }
+        },
+        
+        closeEditModal() {
+            this.showEditModal = false;
+            this.editingEmail = null;
+            this.editingResponse = '';
+        },
+        
+        setupEmail() {
+            window.location.href = '/api/email/oauth/';
+        },
+        
+        updateStats() {
+            this.emailStats.total = this.emails.length;
+            this.emailStats.sent = this.emails.filter(e => e.response_sent).length;
+            this.emailStats.pending = this.emails.filter(e => e.status === 'received' || e.status === 'processing').length;
+        },
+        
+        formatTime(timestamp) {
+            return new Date(timestamp).toLocaleString();
+        },
+        
+        getCsrfToken() {
+            return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+        }
+    }
+}
+</script>
+{% endblock %}

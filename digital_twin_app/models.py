@@ -164,3 +164,68 @@ class SensorReading(models.Model):
     
     def __str__(self):
         return f"{self.sensor_type} at {self.location}: {self.value} {self.unit}"
+
+
+class ValidatedSender(models.Model):
+    """Model to store validated email senders for auto-reply"""
+    email_address = models.EmailField(unique=True)
+    name = models.CharField(max_length=100, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.name} <{self.email_address}>" if self.name else self.email_address
+
+
+class EmailAccount(models.Model):
+    """Model to store email account configuration"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='email_account')
+    email_address = models.EmailField()
+    google_access_token = models.TextField(blank=True)
+    google_refresh_token = models.TextField(blank=True)
+    token_expires_at = models.DateTimeField(null=True, blank=True)
+    auto_reply_enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.email_address}"
+
+
+class EmailMessage(models.Model):
+    """Model to store received and sent email messages"""
+    STATUS_CHOICES = [
+        ('received', 'Received'),
+        ('processing', 'Processing'),
+        ('responded', 'Responded'),
+        ('failed', 'Failed'),
+    ]
+    
+    account = models.ForeignKey(EmailAccount, on_delete=models.CASCADE, related_name='messages')
+    message_id = models.CharField(max_length=255, unique=True)
+    sender = models.EmailField()
+    subject = models.CharField(max_length=500)
+    body = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='received')
+    ai_response = models.TextField(blank=True)
+    response_sent = models.BooleanField(default=False)
+    chat_session = models.ForeignKey(ChatSession, on_delete=models.SET_NULL, null=True, blank=True)
+    received_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-received_at']
+        indexes = [
+            models.Index(fields=['sender', 'status']),
+            models.Index(fields=['received_at']),
+        ]
+    
+    def __str__(self):
+        return f"Email from {self.sender}: {self.subject}"
+    
+    @property
+    def is_from_validated_sender(self):
+        return ValidatedSender.objects.filter(
+            email_address=self.sender, 
+            is_active=True
+        ).exists()

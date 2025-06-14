@@ -98,240 +98,153 @@
             opacity: 0.7;
         }
     }
+    
+    /* Chat-specific markdown styles */
+    .markdown-content {
+        line-height: 1.6;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+    
+    .markdown-content h1, .markdown-content h2, .markdown-content h3, 
+    .markdown-content h4, .markdown-content h5, .markdown-content h6 {
+        font-weight: 600;
+        margin: 0.8em 0 0.4em 0;
+        color: inherit;
+    }
+    
+    .markdown-content h1 { font-size: 1.3em; }
+    .markdown-content h2 { font-size: 1.2em; }
+    .markdown-content h3 { font-size: 1.1em; }
+    .markdown-content h4 { font-size: 1.05em; }
+    .markdown-content h5 { font-size: 1em; }
+    .markdown-content h6 { font-size: 0.95em; }
+    
+    .markdown-content p {
+        margin: 0.4em 0;
+    }
+    
+    .markdown-content ul, .markdown-content ol {
+        margin: 0.4em 0;
+        padding-left: 1.2em;
+    }
+    
+    .markdown-content li {
+        margin: 0.1em 0;
+    }
+    
+    .markdown-content blockquote {
+        border-left: 3px solid currentColor;
+        padding-left: 0.8em;
+        margin: 0.8em 0;
+        font-style: italic;
+        opacity: 0.8;
+    }
+    
+    /* Assistant message blockquotes */
+    .bg-white\/90 .markdown-content blockquote {
+        border-left-color: #6b7280;
+    }
+    
+    /* User message blockquotes */
+    .bg-gradient-to-br .markdown-content blockquote {
+        border-left-color: rgba(255, 255, 255, 0.7);
+    }
+    
+    .markdown-content code {
+        background-color: rgba(0, 0, 0, 0.1);
+        color: inherit;
+        padding: 0.1em 0.3em;
+        border-radius: 3px;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85em;
+    }
+    
+    /* User message code blocks */
+    .bg-gradient-to-br .markdown-content code {
+        background-color: rgba(255, 255, 255, 0.2);
+        color: inherit;
+    }
+    
+    .markdown-content pre {
+        background-color: rgba(0, 0, 0, 0.05);
+        padding: 0.8em;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin: 0.8em 0;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
+    /* User message pre blocks */
+    .bg-gradient-to-br .markdown-content pre {
+        background-color: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    .markdown-content pre code {
+        background-color: transparent;
+        padding: 0;
+        border-radius: 0;
+    }
+    
+    .markdown-content table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 0.8em 0;
+        font-size: 0.9em;
+    }
+    
+    .markdown-content th, .markdown-content td {
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        padding: 0.4em;
+        text-align: left;
+    }
+    
+    .markdown-content th {
+        background-color: rgba(0, 0, 0, 0.05);
+        font-weight: 600;
+    }
+    
+    .markdown-content a {
+        color: #3b82f6;
+        text-decoration: underline;
+    }
+    
+    /* User message links */
+    .bg-gradient-to-br .markdown-content a {
+        color: #93c5fd;
+    }
+    
+    .markdown-content a:hover {
+        opacity: 0.8;
+    }
+    
+    .markdown-content strong {
+        font-weight: 600;
+    }
+    
+    .markdown-content em {
+        font-style: italic;
+    }
+    
+    .markdown-content hr {
+        border: none;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+        margin: 1.5em 0;
+    }
+    
+    /* User message hr */
+    .bg-gradient-to-br .markdown-content hr {
+        border-top-color: rgba(255, 255, 255, 0.3);
+    }
 </style>
 
-<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50" x-data="chatApp()">
-    <!-- Navigation Header -->
-    <div class="sticky top-0 z-40 glass-morphism border-b border-white/20">
-        <div class="max-w-6xl mx-auto px-4 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-4">
-                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
-                        <i class="fas fa-robot text-white text-lg"></i>
-                    </div>
-                    <div>
-                        <h1 class="text-xl font-semibold text-gray-900">Digital Twin Assistant</h1>
-                        <p class="text-sm text-gray-600">AI-powered twin management</p>
-                    </div>
-                </div>
-                
-                <!-- Action Buttons -->
-                <div class="flex items-center space-x-3">
-                    <a href="/email/" 
-                       class="button-ios bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-4 py-2.5 rounded-2xl transition-all duration-200 shadow-lg flex items-center space-x-2">
-                        <i class="fas fa-envelope text-sm"></i>
-                        <span class="text-sm font-medium">Email Automation</span>
-                    </a>
-                </div>
-                
-                <!-- Twin Version Selector with High Z-Index -->
-                <div class="relative z-50" x-data="{ open: false }">
-                    <button @click="open = !open" 
-                            class="button-ios bg-white/80 hover:bg-white text-gray-700 px-4 py-2.5 rounded-2xl flex items-center border border-gray-200/50 min-w-[200px] justify-between">
-                        <div class="flex items-center">
-                            <div class="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center mr-3">
-                                <i class="fas fa-layer-group text-white text-sm"></i>
-                            </div>
-                            <div class="text-left">
-                                <div class="text-sm font-medium" x-text="selectedTwinVersion ? selectedTwinVersion.name : 'Select Twin'"></div>
-                                <div class="text-xs text-gray-500" x-text="selectedTwinVersion ? 'v' + selectedTwinVersion.version : 'No version'"></div>
-                            </div>
-                        </div>
-                        <i class="fas fa-chevron-down text-gray-400 text-sm" :class="{ 'rotate-180': open }"></i>
-                    </button>
-                    
-                    <!-- Dropdown with Maximum Z-Index -->
-                    <div x-show="open" 
-                         @click.away="open = false" 
-                         x-transition:enter="transition ease-out duration-200"
-                         x-transition:enter-start="opacity-0 scale-95"
-                         x-transition:enter-end="opacity-100 scale-100"
-                         x-transition:leave="transition ease-in duration-150"
-                         x-transition:leave-start="opacity-100 scale-100"
-                         x-transition:leave-end="opacity-0 scale-95"
-                         class="absolute right-0 mt-2 w-80 chat-dropdown rounded-3xl border border-white/30 overflow-hidden"
-                         style="z-index: 9999;">
-                        
-                        <!-- Dropdown Header -->
-                        <div class="p-4 border-b border-gray-100/50">
-                            <div class="flex items-center justify-between">
-                                <h3 class="font-semibold text-gray-900">Twin Versions</h3>
-                                <div class="text-xs text-gray-500" x-text="twinVersions.length + ' available'"></div>
-                            </div>
-                        </div>
-                        
-                        <!-- Dropdown Options -->
-                        <div class="max-h-80 overflow-y-auto">
-                            <!-- No Version Option -->
-                            <button @click="selectTwinVersion(null); open = false" 
-                                    class="w-full text-left p-4 hover:bg-gray-50/80 transition-colors duration-200 border-b border-gray-100/50">
-                                <div class="flex items-center">
-                                    <div class="w-10 h-10 bg-gray-100 rounded-2xl flex items-center justify-center mr-3">
-                                        <i class="fas fa-times text-gray-400"></i>
-                                    </div>
-                                    <div class="flex-1">
-                                        <div class="font-medium text-gray-900">General Mode</div>
-                                        <div class="text-sm text-gray-500">Basic chat without document access</div>
-                                    </div>
-                                    <div x-show="selectedTwinVersion === null" class="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center ml-2">
-                                        <i class="fas fa-check text-white text-xs"></i>
-                                    </div>
-                                </div>
-                            </button>
-                            
-                            <!-- Twin Version Options -->
-                            <template x-for="version in twinVersions" :key="version.id">
-                                <button @click="selectTwinVersion(version); open = false" 
-                                        class="w-full text-left p-4 hover:bg-purple-50/80 transition-colors duration-200 border-b border-gray-100/50 last:border-b-0">
-                                    <div class="flex items-center">
-                                        <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center mr-3">
-                                            <i class="fas fa-layer-group text-white text-sm"></i>
-                                        </div>
-                                        <div class="flex-1">
-                                            <div class="font-medium text-gray-900" x-text="version.name + ' v' + version.version"></div>
-                                            <div class="text-sm text-gray-500" x-text="version.document_count + ' documents • ' + (version.description || 'No description')"></div>
-                                        </div>
-                                        <div x-show="selectedTwinVersion && selectedTwinVersion.id === version.id" class="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center ml-2">
-                                            <i class="fas fa-check text-white text-xs"></i>
-                                        </div>
-                                    </div>
-                                </button>
-                            </template>
-                            
-                            <!-- Empty State -->
-                            <div x-show="twinVersions.length === 0" class="p-6 text-center">
-                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                    <i class="fas fa-layer-group text-gray-400 text-xl"></i>
-                                </div>
-                                <div class="text-gray-500 text-sm">No twin versions available</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
+<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 w-full" x-data="chatApp()">
     <!-- Main Chat Container -->
-    <div class="max-w-6xl mx-auto p-4">
-        <!-- Active Twin Version Banner -->
-        <div x-show="selectedTwinVersion" 
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0 transform -translate-y-4"
-             x-transition:enter-end="opacity-100 transform translate-y-0"
-             class="glass-morphism rounded-3xl p-4 mb-6 border border-white/20">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center mr-4">
-                        <i class="fas fa-layer-group text-white"></i>
-                    </div>
-                    <div>
-                        <div class="font-semibold text-gray-900" x-text="selectedTwinVersion ? 'Active: ' + selectedTwinVersion.name + ' v' + selectedTwinVersion.version : ''"></div>
-                        <div class="text-sm text-gray-600" x-text="selectedTwinVersion ? (selectedTwinVersion.description || 'No description') : ''"></div>
-                    </div>
-                </div>
-                <div class="text-right">
-                    <div class="text-lg font-bold text-purple-600" x-text="selectedTwinVersion ? selectedTwinVersion.document_count : '0'"></div>
-                    <div class="text-xs text-gray-500">Documents</div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Gmail Authentication (shown when not configured) -->
-        <div x-show="!emailStatus.configured || gmailAuthError" 
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0 transform -translate-y-4"
-             x-transition:enter-end="opacity-100 transform translate-y-0"
-             class="glass-morphism rounded-3xl p-4 mb-6 border border-white/20">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <div class="w-12 h-12 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl flex items-center justify-center mr-4">
-                        <i class="fab fa-google text-white"></i>
-                    </div>
-                    <div>
-                        <div class="font-semibold text-gray-900" x-text="gmailAuthError ? 'Gmail Authentication Required' : 'Connect Gmail'"></div>
-                        <div class="text-sm text-gray-600" x-text="gmailAuthError ? 'Your Gmail tokens have expired. Please re-authenticate.' : 'Authenticate with Gmail to view real emails'"></div>
-                    </div>
-                </div>
-                <div class="flex space-x-2">
-                    <button x-show="gmailAuthError" 
-                            @click="clearTokensAndReauth()" 
-                            :disabled="gmailAuthenticating"
-                            class="bg-orange-500 text-white px-4 py-2 rounded-xl font-medium hover:shadow-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-50">
-                        <i class="fas fa-trash mr-2"></i>
-                        Clear & Re-auth
-                    </button>
-                    <button @click="authenticateGmail()" 
-                            :disabled="gmailAuthenticating"
-                            class="bg-gradient-to-r from-red-500 to-pink-600 text-white px-6 py-3 rounded-2xl font-medium hover:shadow-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-50">
-                        <i class="fab fa-google mr-2" :class="{ 'fa-spin': gmailAuthenticating }"></i>
-                        <span x-text="gmailAuthenticating ? 'Connecting...' : (gmailAuthError ? 'Re-authenticate' : 'Connect Gmail')"></span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Email Status Panel -->
-        <div x-show="emailStatus.configured" 
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0 transform -translate-y-4"
-             x-transition:enter-end="opacity-100 transform translate-y-0"
-             class="glass-morphism rounded-3xl p-4 mb-6 border border-white/20">
-            <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center">
-                    <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-600 rounded-2xl flex items-center justify-center mr-4">
-                        <i class="fas fa-envelope text-white"></i>
-                    </div>
-                    <div>
-                        <div class="font-semibold text-gray-900">Email Automation</div>
-                        <div class="text-sm text-gray-600" x-text="emailStatus.email_address"></div>
-                    </div>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <div class="text-right">
-                        <div class="text-lg font-bold text-green-600" x-text="emailStatus.stats?.responded || 0"></div>
-                        <div class="text-xs text-gray-500">Responses</div>
-                    </div>
-                    <button @click="toggleAutoReply()" 
-                            class="button-ios px-4 py-2 rounded-xl text-sm"
-                            :class="emailStatus.auto_reply_enabled ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'">
-                        <i class="fas fa-power-off mr-2"></i>
-                        <span x-text="emailStatus.auto_reply_enabled ? 'ON' : 'OFF'"></span>
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Recent Email Messages -->
-            <div x-show="emailStatus.messages && emailStatus.messages.length > 0" class="space-y-2">
-                <div class="text-sm font-medium text-gray-700 mb-2">Recent Email Activity</div>
-                <template x-for="email in emailStatus.messages.slice(0, 3)" :key="email.id">
-                    <div @click="viewEmailThread(email.id)" 
-                         class="p-3 bg-white/50 rounded-xl cursor-pointer hover:bg-white/70 transition-colors">
-                        <div class="flex items-center justify-between">
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center space-x-2">
-                                    <span class="text-sm font-medium text-gray-900" x-text="email.sender"></span>
-                                    <span class="px-2 py-1 rounded-full text-xs"
-                                          :class="email.status === 'responded' ? 'bg-green-100 text-green-700' : 
-                                                  email.status === 'processing' ? 'bg-yellow-100 text-yellow-700' : 
-                                                  'bg-blue-100 text-blue-700'"
-                                          x-text="email.status"></span>
-                                    <span x-show="email.is_from_validated_sender" 
-                                          class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
-                                        ✓ Validated
-                                    </span>
-                                </div>
-                                <div class="text-sm text-gray-600 truncate" x-text="email.subject"></div>
-                            </div>
-                            <div class="text-xs text-gray-500" x-text="formatTime(email.received_at)"></div>
-                        </div>
-                    </div>
-                </template>
-            </div>
-        </div>
+    <div class="w-full px-4 py-6">
         
         <!-- Chat Container with Enhanced iOS 17 Design -->
-        <div class="glass-morphism rounded-3xl shadow-2xl flex flex-col border border-white/20 overflow-hidden" style="height: calc(100vh - 280px); min-height: 500px;">
+        <div class="glass-morphism rounded-3xl shadow-2xl flex flex-col border border-white/20 overflow-hidden w-full max-w-none mx-auto" style="height: calc(100vh - 200px); min-height: 600px;">
             <!-- Messages Area with Enhanced Styling -->
             <div class="flex-1 overflow-y-auto p-6 chat-container" x-ref="chatContainer">
                 <!-- Welcome Message for Empty State -->
@@ -350,64 +263,64 @@
 
                 <!-- Chat Messages -->
                 <template x-for="message in messages" :key="message.id">
-                    <div class="mb-8" :class="message.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
-                        <div class="max-w-[75%] md:max-w-lg"
+                    <div class="mb-4 md:mb-6" :class="message.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
+                        <div class="max-w-[85%] md:max-w-4xl lg:max-w-5xl"
                              :class="message.role === 'user' 
                                      ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-3xl rounded-br-xl shadow-lg' 
                                      : 'bg-white/90 text-gray-800 rounded-3xl rounded-bl-xl shadow-lg border border-gray-100'">
-                            <div class="px-6 py-4">
-                                <div class="flex items-start">
+                            <div class="px-4 md:px-6 py-3 md:py-4">
+                                <div class="flex items-start gap-3">
                                     <!-- Assistant Avatar -->
-                                    <div x-show="message.role === 'assistant'" class="mr-4 mt-1">
-                                        <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                                            <i class="fas fa-robot text-white text-sm"></i>
+                                    <div x-show="message.role === 'assistant'" class="flex-shrink-0">
+                                        <div class="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                                            <i class="fas fa-robot text-white text-xs md:text-sm"></i>
                                         </div>
                                     </div>
                                     
                                     <!-- Message Content -->
                                     <div class="flex-1 min-w-0">
-                                        <p x-text="message.content" class="whitespace-pre-wrap leading-relaxed text-[15px]"></p>
+                                        <div x-html="renderMarkdown(message.content)" class="markdown-content leading-relaxed text-sm md:text-[15px]"></div>
                                         
                                         <!-- Tools Used Indicator -->
                                         <div x-show="message.tools_used && message.tools_used.length > 0" 
-                                             class="text-xs mt-3 opacity-75 flex items-center">
+                                             class="text-xs mt-2 opacity-75 flex items-center">
                                             <i class="fas fa-tools mr-2"></i>
                                             <span class="bg-black/10 px-2 py-1 rounded-full">
                                                 Tools: <span x-text="message.tools_used.join(', ')"></span>
                                             </span>
                                         </div>
+                                        
+                                        <!-- Timestamp -->
+                                        <div class="text-xs mt-2 opacity-60" 
+                                             :class="message.role === 'user' ? 'text-right text-blue-100' : 'text-left text-gray-500'"
+                                             x-text="formatTime(message.timestamp)"></div>
                                     </div>
                                     
                                     <!-- User Avatar -->
-                                    <div x-show="message.role === 'user'" class="ml-4 mt-1">
-                                        <div class="w-10 h-10 bg-gradient-to-br from-gray-500 to-gray-600 rounded-2xl flex items-center justify-center shadow-lg">
-                                            <i class="fas fa-user text-white text-sm"></i>
+                                    <div x-show="message.role === 'user'" class="flex-shrink-0">
+                                        <div class="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-gray-500 to-gray-600 rounded-2xl flex items-center justify-center shadow-lg">
+                                            <i class="fas fa-user text-white text-xs md:text-sm"></i>
                                         </div>
                                     </div>
                                 </div>
-                                
-                                <!-- Timestamp -->
-                                <div class="text-xs mt-3 opacity-60" 
-                                     :class="message.role === 'user' ? 'text-right text-blue-100' : 'text-left text-gray-500'"
-                                     x-text="formatTime(message.timestamp)"></div>
                             </div>
                         </div>
                     </div>
                 </template>
                 
                 <!-- Enhanced Typing Indicator -->
-                <div x-show="isTyping" class="mb-8 flex justify-start">
-                    <div class="bg-white/90 rounded-3xl rounded-bl-xl px-6 py-4 shadow-lg border border-gray-100">
-                        <div class="flex items-center">
-                            <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mr-4 shadow-lg">
-                                <i class="fas fa-robot text-white text-sm"></i>
+                <div x-show="isTyping" class="mb-4 md:mb-6 flex justify-start">
+                    <div class="bg-white/90 rounded-3xl rounded-bl-xl px-4 md:px-6 py-3 md:py-4 shadow-lg border border-gray-100 max-w-[85%] md:max-w-xl">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                                <i class="fas fa-robot text-white text-xs md:text-sm"></i>
                             </div>
                             <div class="typing-indicator">
                                 <span></span>
                                 <span></span>
                                 <span></span>
                             </div>
-                            <span class="ml-3 text-gray-500 text-sm">Assistant is thinking...</span>
+                            <span class="text-gray-500 text-sm">Assistant is thinking...</span>
                         </div>
                     </div>
                 </div>
@@ -507,69 +420,207 @@ function chatApp() {
         // Twin Version state
         twinVersions: [],
         selectedTwinVersion: null,
-        
-        // Email status state
-        emailStatus: {
-            configured: false,
-            email_address: '',
-            auto_reply_enabled: false,
-            messages: [],
-            stats: {}
+
+        // Markdown rendering function
+        renderMarkdown(content) {
+            if (typeof marked === 'undefined') {
+                // Fallback if marked is not loaded
+                return content.replace(/\n/g, '<br>');
+            }
+            
+            try {
+                // Configure marked for safety and syntax highlighting
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true,
+                    highlight: function(code, lang) {
+                        if (typeof hljs !== 'undefined' && lang && hljs.getLanguage(lang)) {
+                            try {
+                                return hljs.highlight(code, { language: lang }).value;
+                            } catch (err) {}
+                        }
+                        return code;
+                    }
+                });
+                
+                return marked.parse(content);
+            } catch (error) {
+                console.warn('Error rendering markdown:', error);
+                return content.replace(/\n/g, '<br>');
+            }
         },
-        
-        // Gmail authentication state
-        gmailAuthenticating: false,
-        gmailAuthError: false,
-        gmailAuthError: false,
 
         // Initialize the component
         async init() {
+            // Show twin selector in navbar
+            this.showNavbarTwinSelector();
+            
             // Generate session ID first
             this.sessionId = this.getStoredSessionId() || this.generateSessionId();
             
-            // Check for OAuth callback parameters
-            this.handleOAuthCallback();
-            
             // Load twin versions
             await this.loadTwinVersions();
-            // Load email status
-            await this.loadEmailStatus();
             // Load conversation history if available
             this.loadHistory();
             // Check connection status
             this.checkConnection();
-            // Start email status polling
-            this.startEmailPolling();
         },
 
-        // Handle OAuth callback parameters
-        handleOAuthCallback() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const gmailAuth = urlParams.get('gmail_auth');
-            const error = urlParams.get('error');
+        // Show twin selector in navbar (only on chat page)
+        showNavbarTwinSelector() {
+            // Show desktop twin selector
+            const navbarSelector = document.getElementById('navbar-twin-selector');
+            if (navbarSelector) {
+                navbarSelector.classList.remove('hidden');
+                this.setupNavbarTwinSelector();
+            }
             
-            if (gmailAuth === 'success') {
-                this.addMessage('assistant', '✅ Gmail connected successfully! You can now view real emails from your Gmail inbox.');
-                // Reload email status to show the new configuration
-                setTimeout(() => this.loadEmailStatus(), 1000);
+            // Show mobile twin selector
+            const navbarSelectorMobile = document.getElementById('navbar-twin-selector-mobile');
+            if (navbarSelectorMobile) {
+                navbarSelectorMobile.classList.remove('hidden');
+                this.setupNavbarTwinSelectorMobile();
+            }
+        },
+
+        // Setup desktop navbar twin selector functionality
+        setupNavbarTwinSelector() {
+            const navbarTwinName = document.getElementById('navbar-twin-name');
+            const navbarDropdown = document.getElementById('navbar-twin-dropdown');
+            
+            if (!navbarDropdown) return;
+
+            // Create dropdown content for desktop
+            navbarDropdown.innerHTML = `
+                <div class="chat-dropdown rounded-3xl border border-white/30 overflow-hidden bg-white/95 backdrop-blur-25">
+                    <div class="p-4 border-b border-gray-100/50">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-semibold text-gray-900">Twin Versions</h3>
+                            <div class="text-xs text-gray-500" x-text="twinVersions.length + ' available'"></div>
+                        </div>
+                    </div>
+                    <div class="max-h-80 overflow-y-auto">
+                        <button onclick="window.chatAppInstance.selectTwinVersion(null)" 
+                                class="w-full text-left p-4 hover:bg-gray-50/80 transition-colors duration-200 border-b border-gray-100/50">
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 bg-gray-100 rounded-2xl flex items-center justify-center mr-3">
+                                    <i class="fas fa-times text-gray-400"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="font-medium text-gray-900">General Mode</div>
+                                    <div class="text-sm text-gray-500">Basic chat without document access</div>
+                                </div>
+                            </div>
+                        </button>
+                        <div id="navbar-twin-options"></div>
+                    </div>
+                </div>
+            `;
+            
+            navbarDropdown.classList.remove('hidden');
+            
+            // Store reference for global access
+            window.chatAppInstance = this;
+        },
+
+        // Setup mobile navbar twin selector functionality
+        setupNavbarTwinSelectorMobile() {
+            const navbarDropdownMobile = document.getElementById('navbar-twin-dropdown-mobile');
+            
+            if (!navbarDropdownMobile) return;
+
+            // Determine appropriate width for mobile dropdown
+            const isMobile = window.innerWidth < 480;
+            const dropdownClass = isMobile ? 'mobile-dropdown-small' : '';
+
+            // Create dropdown content for mobile
+            navbarDropdownMobile.innerHTML = `
+                <div class="chat-dropdown rounded-2xl border border-white/30 overflow-hidden bg-white/95 backdrop-blur-25 ${dropdownClass}">
+                    <div class="p-3 border-b border-gray-100/50">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-semibold text-gray-900 text-sm">Twin Versions</h3>
+                            <div class="text-xs text-gray-500" x-text="twinVersions.length + ' available'"></div>
+                        </div>
+                    </div>
+                    <div class="max-h-64 overflow-y-auto">
+                        <button onclick="window.chatAppInstance.selectTwinVersion(null)" 
+                                class="w-full text-left p-3 hover:bg-gray-50/80 transition-colors duration-200 border-b border-gray-100/50">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 bg-gray-100 rounded-xl flex items-center justify-center mr-3">
+                                    <i class="fas fa-times text-gray-400 text-xs"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="font-medium text-gray-900 text-sm">General Mode</div>
+                                    <div class="text-xs text-gray-500">Basic chat without document access</div>
+                                </div>
+                            </div>
+                        </button>
+                        <div id="navbar-twin-options-mobile"></div>
+                    </div>
+                </div>
+            `;
+            
+            navbarDropdownMobile.classList.remove('hidden');
+            
+            // Update dropdown position on window resize for mobile
+            window.addEventListener('resize', () => {
+                const newIsMobile = window.innerWidth < 480;
+                const dropdown = navbarDropdownMobile.querySelector('.chat-dropdown');
+                if (newIsMobile !== isMobile && dropdown) {
+                    dropdown.classList.toggle('mobile-dropdown-small', newIsMobile);
+                }
+            });
+        },
+
+        // Update navbar twin selector when versions are loaded
+        updateNavbarTwinSelector() {
+            const navbarTwinName = document.getElementById('navbar-twin-name');
+            const navbarTwinOptions = document.getElementById('navbar-twin-options');
+            const navbarTwinOptionsMobile = document.getElementById('navbar-twin-options-mobile');
+            
+            // Update desktop twin name
+            if (navbarTwinName) {
+                navbarTwinName.textContent = this.selectedTwinVersion 
+                    ? `${this.selectedTwinVersion.name} v${this.selectedTwinVersion.version}`
+                    : 'Select Twin';
+            }
+            
+            // Create twin options HTML template
+            const createTwinOption = (version, isMobile = false) => {
+                const sizeClass = isMobile ? 'w-8 h-8' : 'w-10 h-10';
+                const iconSizeClass = isMobile ? 'text-xs' : 'text-sm';
+                const titleSizeClass = isMobile ? 'text-sm' : '';
+                const descSizeClass = isMobile ? 'text-xs' : 'text-sm';
+                const paddingClass = isMobile ? 'p-3' : 'p-4';
+                const marginClass = isMobile ? 'mr-3' : 'mr-3';
+                const borderRadiusClass = isMobile ? 'rounded-xl' : 'rounded-2xl';
                 
-                // Clean up URL parameters
-                const newUrl = window.location.pathname;
-                window.history.replaceState({}, document.title, newUrl);
-            } else if (error) {
-                const errorMessages = {
-                    'oauth_denied': 'Gmail authentication was cancelled.',
-                    'no_code': 'No authorization code received from Gmail.',
-                    'token_exchange_failed': 'Failed to exchange authorization code for tokens.',
-                    'oauth_callback_failed': 'OAuth callback failed. Please try again.'
-                };
-                
-                const errorMessage = errorMessages[error] || 'Unknown authentication error.';
-                this.addMessage('assistant', `❌ Gmail authentication failed: ${errorMessage}`);
-                
-                // Clean up URL parameters
-                const newUrl = window.location.pathname;
-                window.history.replaceState({}, document.title, newUrl);
+                return `
+                    <button onclick="window.chatAppInstance.selectTwinVersion(${JSON.stringify(version).replace(/"/g, '&quot;')})" 
+                            class="w-full text-left ${paddingClass} hover:bg-purple-50/80 transition-colors duration-200 border-b border-gray-100/50 last:border-b-0">
+                        <div class="flex items-center">
+                            <div class="${sizeClass} bg-gradient-to-br from-purple-500 to-blue-600 ${borderRadiusClass} flex items-center justify-center ${marginClass}">
+                                <i class="fas fa-layer-group text-white ${iconSizeClass}"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="font-medium text-gray-900 ${titleSizeClass}">${version.name} v${version.version}</div>
+                                <div class="${descSizeClass} text-gray-500">${version.document_count} documents • ${version.description || 'No description'}</div>
+                            </div>
+                            ${this.selectedTwinVersion && this.selectedTwinVersion.id === version.id ? 
+                                '<div class="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center ml-2"><i class="fas fa-check text-white text-xs"></i></div>' : ''}
+                        </div>
+                    </button>
+                `;
+            };
+            
+            // Update desktop twin options
+            if (navbarTwinOptions) {
+                navbarTwinOptions.innerHTML = this.twinVersions.map(version => createTwinOption(version, false)).join('');
+            }
+            
+            // Update mobile twin options
+            if (navbarTwinOptionsMobile) {
+                navbarTwinOptionsMobile.innerHTML = this.twinVersions.map(version => createTwinOption(version, true)).join('');
             }
         },
 
@@ -580,6 +631,7 @@ function chatApp() {
                 if (response.ok) {
                     const data = await response.json();
                     this.twinVersions = data.twin_versions || data;
+                    this.updateNavbarTwinSelector();
                 }
             } catch (error) {
                 console.warn('Could not load twin versions:', error);
@@ -594,6 +646,9 @@ function chatApp() {
             this.sessionId = this.generateSessionId();
             // Clear current messages
             this.messages = [];
+            
+            // Update navbar display
+            this.updateNavbarTwinSelector();
             
             if (version) {
                 this.addMessage('assistant', `Switched to ${version.name} v${version.version}. I now have access to ${version.document_count} documents for this twin version. How can I help you?`);
@@ -769,196 +824,13 @@ function chatApp() {
         async loadHistory() {
             // For now, just add a welcome message
             if (this.messages.length === 0) {
-                this.addMessage('assistant', 'Hello! I\'m your Digital Twin Assistant. I can help you with sensor data, system status, and document queries. Select a twin version to access specific documents.');
+                this.addMessage('assistant', 'Hello! I\'m your Digital Twin Assistant. I can help you with sensor data, system status, and document queries. Select a twin version from the navbar to access specific documents.');
             }
-        },
-
-        // Email Status Functions
-        async loadEmailStatus() {
-            try {
-                const response = await fetch('/api/email/status/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success) {
-                        this.emailStatus = data;
-                        this.gmailAuthError = false; // Clear error if status loaded successfully
-                    }
-                } else {
-                    // Check if this might be an authentication error
-                    this.gmailAuthError = true;
-                }
-            } catch (error) {
-                console.warn('Failed to load email status:', error);
-                // If there's an error loading email status, it might be auth-related
-                this.gmailAuthError = true;
-            }
-        },
-
-        // Gmail Authentication Functions
-        async authenticateGmail() {
-            try {
-                this.gmailAuthenticating = true;
-                
-                // Get OAuth URL
-                const response = await fetch('/api/email/oauth/', {
-                    method: 'GET',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                    }
-                });
-                
-                if (response.ok) {
-                    // Redirect to OAuth URL
-                    window.location.href = response.url;
-                } else {
-                    throw new Error('Failed to get OAuth URL');
-                }
-            } catch (error) {
-                console.error('Gmail authentication failed:', error);
-                this.addMessage('assistant', '❌ Failed to connect to Gmail. Please try again.');
-            } finally {
-                this.gmailAuthenticating = false;
-            }
-        },
-
-        async clearTokensAndReauth() {
-            try {
-                this.gmailAuthenticating = true;
-                
-                // Clear invalid tokens first
-                const clearResponse = await fetch('/api/email/clear-tokens/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    }
-                });
-                
-                if (clearResponse.ok) {
-                    this.gmailAuthError = false;
-                    this.addMessage('assistant', '🔄 Cleared invalid tokens. Starting re-authentication...');
-                    
-                    // Wait a moment then redirect to OAuth
-                    setTimeout(() => {
-                        this.authenticateGmail();
-                    }, 1000);
-                } else {
-                    throw new Error('Failed to clear tokens');
-                }
-            } catch (error) {
-                console.error('Failed to clear tokens:', error);
-                this.addMessage('assistant', '❌ Failed to clear tokens. Please try again.');
-            } finally {
-                this.gmailAuthenticating = false;
-            }
-        },
-
-        async toggleAutoReply() {
-            try {
-                const response = await fetch('/api/email/toggle/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success) {
-                        this.emailStatus.auto_reply_enabled = data.auto_reply_enabled;
-                        this.addMessage('assistant', `📧 Auto-reply ${data.auto_reply_enabled ? 'enabled' : 'disabled'}`);
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to toggle auto-reply:', error);
-            }
-        },
-
-        async viewEmailThread(emailId) {
-            try {
-                const response = await fetch('/api/email/thread/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                    body: JSON.stringify({ email_id: emailId })
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.email_thread) {
-                        // Add email thread to chat
-                        data.email_thread.forEach(msg => {
-                            this.addMessage(msg.role, msg.content, msg.email_metadata);
-                        });
-                        this.scrollToBottom();
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to load email thread:', error);
-            }
-        },
-
-        startEmailPolling() {
-            // Poll for new emails every 30 seconds
-            setInterval(async () => {
-                await this.loadEmailStatus();
-                await this.checkForNewEmails();
-            }, 30000);
-        },
-
-        async checkForNewEmails() {
-            if (!this.emailStatus.configured) return;
-            
-            try {
-                const response = await fetch('/api/email/check/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.processed_count > 0) {
-                        this.addMessage('assistant', `📧 Processed ${data.processed_count} new email(s)`);
-                        await this.loadEmailStatus(); // Refresh status
-                    }
-                }
-            } catch (error) {
-                console.warn('Failed to check emails:', error);
-            }
-        },
-
-        formatTime(isoString) {
-            const date = new Date(isoString);
-            const now = new Date();
-            const diffMs = now - date;
-            const diffMins = Math.floor(diffMs / 60000);
-            const diffHours = Math.floor(diffMs / 3600000);
-            const diffDays = Math.floor(diffMs / 86400000);
-
-            if (diffMins < 1) return 'Just now';
-            if (diffMins < 60) return `${diffMins}m ago`;
-            if (diffHours < 24) return `${diffHours}h ago`;
-            if (diffDays < 7) return `${diffDays}d ago`;
-            return date.toLocaleDateString();
         },
 
         // Check connection status
         async checkConnection() {
             try {
-                // Use a simple API endpoint to check connection
                 const response = await fetch('/api/twin-versions/', {
                     method: 'GET',
                     headers: {
@@ -970,9 +842,6 @@ function chatApp() {
                 this.isConnected = false;
                 console.warn('Connection check failed:', error);
             }
-            
-            // Check connection every 30 seconds
-            setTimeout(() => this.checkConnection(), 30000);
         }
     }
 }

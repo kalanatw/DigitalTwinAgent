@@ -2,11 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>{% block title %}RAGAgent{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <!-- Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <style>
         /* Modern Design System */
         :root {
@@ -132,6 +139,164 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
         
+        /* Navbar Mobile Enhancements */
+        .mobile-menu-button {
+            position: relative;
+            z-index: 10;
+        }
+        
+        .mobile-menu-panel {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        
+        /* Enhanced border effects for navbar items */
+        .navbar-item {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .navbar-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            border-radius: inherit;
+        }
+        
+        .navbar-item:hover::before {
+            opacity: 1;
+        }
+        
+        /* Hamburger menu animation improvements */
+        .hamburger-line {
+            transform-origin: center;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        
+        /* Mobile dropdown positioning */
+        @media (max-width: 1023px) {
+            .mobile-dropdown {
+                right: 0;
+                left: auto;
+                transform: translateX(0);
+            }
+        }
+        
+        /* Responsive twin selector */
+        @media (max-width: 1279px) {
+            .twin-name-text {
+                display: none;
+            }
+        }
+        
+        /* Enhanced glass effect for mobile */
+        @media (max-width: 768px) {
+            .glass {
+                background: rgba(255, 255, 255, 0.12);
+                backdrop-filter: blur(25px);
+                -webkit-backdrop-filter: blur(25px);
+            }
+            
+            .mobile-menu-panel {
+                border-right: 2px solid rgba(255, 255, 255, 0.3);
+            }
+        }
+        
+        /* Mobile border-right improvements */
+        @media (max-width: 1023px) {
+            .mobile-nav-item {
+                border-right: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 12px 0 0 12px;
+                margin-right: 0.5rem;
+                position: relative;
+            }
+            
+            .mobile-nav-item:hover {
+                border-right: 2px solid rgba(255, 255, 255, 0.4);
+                background: rgba(255, 255, 255, 0.15);
+                transform: translateX(-2px);
+            }
+            
+            .mobile-nav-item::after {
+                content: '';
+                position: absolute;
+                right: -1px;
+                top: 0;
+                bottom: 0;
+                width: 2px;
+                background: linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.2));
+                opacity: 0;
+                transition: opacity 0.2s ease;
+            }
+            
+            .mobile-nav-item:hover::after {
+                opacity: 1;
+            }
+        }
+        
+        /* Improved mobile dropdown positioning */
+        @media (max-width: 480px) {
+            .mobile-dropdown-small {
+                width: calc(100vw - 2rem);
+                right: 1rem;
+                left: 1rem;
+            }
+        }
+        
+        /* Mobile twin selector improvements */
+        @media (max-width: 1023px) {
+            #navbar-twin-selector-mobile {
+                display: block;
+            }
+            
+            #navbar-twin-selector-mobile button {
+                border-right: 2px solid transparent;
+                transition: all 0.2s ease;
+                min-height: 44px; /* Touch-friendly minimum */
+                min-width: 44px;
+            }
+            
+            #navbar-twin-selector-mobile button:hover {
+                border-right: 2px solid rgba(255, 255, 255, 0.4);
+                background: rgba(255, 255, 255, 0.15);
+            }
+            
+            #navbar-twin-selector-mobile button:active {
+                background: rgba(255, 255, 255, 0.2);
+                transform: scale(0.95);
+            }
+        }
+        
+        /* Touch-friendly mobile interactions */
+        @media (max-width: 768px) {
+            .mobile-nav-item {
+                min-height: 48px; /* Larger touch target */
+                padding: 0.875rem 1rem !important;
+            }
+            
+            .hamburger-menu-button {
+                min-height: 44px;
+                min-width: 44px;
+                padding: 0.75rem !important;
+            }
+            
+            /* Improve tap highlights */
+            .mobile-nav-item,
+            #navbar-twin-selector-mobile button,
+            .hamburger-menu-button {
+                -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1);
+                -webkit-touch-callout: none;
+                -webkit-user-select: none;
+                user-select: none;
+            }
+        }
+        
         /* Modal animations */
         .modal-enter {
             animation: modalEnter 0.3s ease-out;
@@ -200,71 +365,6 @@
             animation: spin 1s linear infinite;
         }
         
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        /* Typing animation */
-        .typing-indicator {
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-        }
-        .typing-indicator span {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            animation: typing 1.4s infinite ease-in-out;
-        }
-        .typing-indicator span:nth-child(1) {
-            animation-delay: 0s;
-        }
-        .typing-indicator span:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-        .typing-indicator span:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-        
-        @keyframes typing {
-            0%, 60%, 100% {
-                transform: translateY(0);
-                opacity: 0.4;
-            }
-            30% {
-                transform: translateY(-12px);
-                opacity: 1;
-            }
-        }
-        
-        /* Smooth entrance animations */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .animate-fade-in-up {
-            animation: fadeInUp 0.6s ease-out;
-        }
-        
-        /* Button hover effects */
-        .btn-hover {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        .btn-hover:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-        }
         
         .btn-hover:active {
             transform: translateY(0);
@@ -292,32 +392,235 @@
                 transform: translateY(0);
             }
         }
+        
+        /* Markdown Styles */
+        .markdown-content {
+            line-height: 1.6;
+        }
+        
+        .markdown-content h1, .markdown-content h2, .markdown-content h3, 
+        .markdown-content h4, .markdown-content h5, .markdown-content h6 {
+            font-weight: 600;
+            margin: 1.5em 0 0.5em 0;
+            color: inherit;
+        }
+        
+        .markdown-content h1 { font-size: 1.5em; }
+        .markdown-content h2 { font-size: 1.3em; }
+        .markdown-content h3 { font-size: 1.2em; }
+        .markdown-content h4 { font-size: 1.1em; }
+        .markdown-content h5 { font-size: 1em; }
+        .markdown-content h6 { font-size: 0.9em; }
+        
+        .markdown-content p {
+            margin: 0.8em 0;
+        }
+        
+        .markdown-content ul, .markdown-content ol {
+            margin: 0.8em 0;
+            padding-left: 1.5em;
+        }
+        
+        .markdown-content li {
+            margin: 0.3em 0;
+        }
+        
+        .markdown-content blockquote {
+            border-left: 4px solid #e5e7eb;
+            padding-left: 1em;
+            margin: 1em 0;
+            font-style: italic;
+            color: #6b7280;
+        }
+        
+        .markdown-content code {
+            background-color: rgba(0, 0, 0, 0.05);
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9em;
+        }
+        
+        .markdown-content pre {
+            background-color: #f8f9fa;
+            padding: 1em;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1em 0;
+            border: 1px solid #e9ecef;
+        }
+        
+        .markdown-content pre code {
+            background-color: transparent;
+            padding: 0;
+            border-radius: 0;
+        }
+        
+        .markdown-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+        }
+        
+        .markdown-content th, .markdown-content td {
+            border: 1px solid #e5e7eb;
+            padding: 0.5em;
+            text-align: left;
+        }
+        
+        .markdown-content th {
+            background-color: #f9fafb;
+            font-weight: 600;
+        }
+        
+        .markdown-content a {
+            color: #3b82f6;
+            text-decoration: underline;
+        }
+        
+        .markdown-content a:hover {
+            color: #1d4ed8;
+        }
+        
+        .markdown-content strong {
+            font-weight: 600;
+        }
+        
+        .markdown-content em {
+            font-style: italic;
+        }
+        
+        .markdown-content hr {
+            border: none;
+            border-top: 1px solid #e5e7eb;
+            margin: 2em 0;
+        }
     </style>
 </head>
 <body class="min-h-screen">
-    <!-- Navigation with Glass Effect -->
-    <nav class="glass sticky top-0 z-40 border-b border-white/20">
+    <!-- Mobile-Responsive Navigation with Glass Effect -->
+    <nav class="glass sticky top-0 z-50 border-b border-white/20" x-data="{ mobileMenuOpen: false }">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
+                <!-- Logo/Brand -->
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
-                        <h1 class="text-xl font-semibold text-white flex items-center">
-                            <div class="w-8 h-8 bg-gradient-to-br from-white to-white/80 rounded-full flex items-center justify-center mr-3">
-                                <i class="fas fa-cogs text-indigo-600 text-sm"></i>
+                        <h1 class="text-lg sm:text-xl font-semibold text-white flex items-center">
+                            <div class="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-white to-white/80 rounded-full flex items-center justify-center mr-2 sm:mr-3">
+                                <i class="fas fa-cogs text-indigo-600 text-xs sm:text-sm"></i>
                             </div>
-                            RAGAgent
+                            <span class="hidden sm:inline">RAGAgent</span>
+                            <span class="sm:hidden">RAG</span>
                         </h1>
                     </div>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <a href="/" class="text-white/80 hover:text-white px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/10">
-                        <i class="fas fa-comments mr-2"></i>Chat
+
+                <!-- Desktop Navigation -->
+                <div class="hidden lg:flex items-center space-x-2 xl:space-x-4">
+                    <a href="/" class="text-white/80 hover:text-white px-2 xl:px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20">
+                        <i class="fas fa-comments mr-1 xl:mr-2"></i>
+                        <span class="hidden xl:inline">Chat</span>
                     </a>
-                    <a href="/dms/" class="text-white/80 hover:text-white px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/10">
-                        <i class="fas fa-folder-open mr-2"></i>Documents
+                    <a href="/email/" class="text-white/80 hover:text-white px-2 xl:px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20">
+                        <i class="fas fa-envelope mr-1 xl:mr-2"></i>
+                        <span class="hidden xl:inline">Email</span>
                     </a>
-                    <a href="/about/" class="text-white/80 hover:text-white px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/10">
-                        <i class="fas fa-info-circle mr-2"></i>About
+                    <a href="/dms/" class="text-white/80 hover:text-white px-2 xl:px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20">
+                        <i class="fas fa-folder-open mr-1 xl:mr-2"></i>
+                        <span class="hidden xl:inline">Documents</span>
+                    </a>
+                    <a href="/about/" class="text-white/80 hover:text-white px-2 xl:px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20">
+                        <i class="fas fa-info-circle mr-1 xl:mr-2"></i>
+                        <span class="hidden xl:inline">About</span>
+                    </a>
+                    
+                    <!-- Twin Version Selector in Desktop Navbar -->
+                    <div id="navbar-twin-selector" class="relative hidden" x-data="{ open: false }">
+                        <button @click="open = !open" 
+                                class="text-white/80 hover:text-white px-2 xl:px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/10 flex items-center border border-transparent hover:border-white/20">
+                            <i class="fas fa-layer-group mr-1 xl:mr-2"></i>
+                            <span id="navbar-twin-name" class="hidden xl:inline">Select Twin</span>
+                            <i class="fas fa-chevron-down ml-1 xl:ml-2 text-xs transition-transform duration-200" :class="{ 'rotate-180': open }"></i>
+                        </button>
+                        
+                        <!-- Desktop Dropdown -->
+                        <div id="navbar-twin-dropdown" x-show="open" @click.away="open = false" 
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 scale-95"
+                             x-transition:enter-end="opacity-1 scale-100"
+                             x-transition:leave="transition ease-in duration-150"
+                             x-transition:leave-start="opacity-1 scale-100"
+                             x-transition:leave-end="opacity-0 scale-95"
+                             class="absolute right-0 mt-2 w-80 hidden"></div>
+                    </div>
+                </div>
+
+                <!-- Mobile Navigation Button -->
+                <div class="flex items-center lg:hidden">
+                    <!-- Twin Selector for Mobile (visible only on chat page) -->
+                    <div id="navbar-twin-selector-mobile" class="relative hidden mr-2" x-data="{ open: false }">
+                        <button @click="open = !open" 
+                                class="text-white/80 hover:text-white p-2 rounded-xl transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20">
+                            <i class="fas fa-layer-group text-sm"></i>
+                        </button>
+                        
+                        <!-- Mobile Twin Dropdown -->
+                        <div id="navbar-twin-dropdown-mobile" x-show="open" @click.away="open = false"
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+                             x-transition:enter-end="opacity-1 scale-100 translate-y-0"
+                             x-transition:leave="transition ease-in duration-150"
+                             x-transition:leave-start="opacity-1 scale-100 translate-y-0"
+                             x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+                             class="absolute right-0 mt-2 w-72 hidden"
+                             :class="{'mobile-dropdown-small': window.innerWidth < 480}"></div>
+                    </div>
+                    
+                    <!-- Hamburger Menu Button -->
+                    <button @click="mobileMenuOpen = !mobileMenuOpen" 
+                            class="text-white/80 hover:text-white p-2 rounded-xl transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 hamburger-menu-button"
+                            :class="{ 'bg-white/10 border-white/20': mobileMenuOpen }">
+                        <div class="w-6 h-6 flex flex-col justify-center items-center space-y-1">
+                            <span class="block w-5 h-0.5 bg-current transition-all duration-300 ease-in-out"
+                                  :class="{ 'rotate-45 translate-y-1.5': mobileMenuOpen }"></span>
+                            <span class="block w-5 h-0.5 bg-current transition-all duration-300 ease-in-out"
+                                  :class="{ 'opacity-0': mobileMenuOpen }"></span>
+                            <span class="block w-5 h-0.5 bg-current transition-all duration-300 ease-in-out"
+                                  :class="{ '-rotate-45 -translate-y-1.5': mobileMenuOpen }"></span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mobile Menu Panel -->
+            <div x-show="mobileMenuOpen" 
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 -translate-y-4"
+                 x-transition:enter-end="opacity-1 translate-y-0"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-1 translate-y-0"
+                 x-transition:leave-end="opacity-0 -translate-y-4"
+                 class="lg:hidden border-t border-white/20 bg-white/5 backdrop-blur-sm mobile-menu-panel">
+                <div class="px-2 pt-2 pb-3 space-y-1">
+                    <a href="/" 
+                       @click="mobileMenuOpen = false"
+                       class="text-white/80 hover:text-white block px-3 py-3 rounded-xl text-base font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
+                        <i class="fas fa-comments mr-3 w-5"></i>Chat
+                    </a>
+                    <a href="/email/" 
+                       @click="mobileMenuOpen = false"
+                       class="text-white/80 hover:text-white block px-3 py-3 rounded-xl text-base font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
+                        <i class="fas fa-envelope mr-3 w-5"></i>Email Automation
+                    </a>
+                    <a href="/dms/" 
+                       @click="mobileMenuOpen = false"
+                       class="text-white/80 hover:text-white block px-3 py-3 rounded-xl text-base font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
+                        <i class="fas fa-folder-open mr-3 w-5"></i>Document Management
+                    </a>
+                    <a href="/about/" 
+                       @click="mobileMenuOpen = false"
+                       class="text-white/80 hover:text-white block px-3 py-3 rounded-xl text-base font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
+                        <i class="fas fa-info-circle mr-3 w-5"></i>About
                     </a>
                 </div>
             </div>

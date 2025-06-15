@@ -6,6 +6,7 @@ from django.views.generic import TemplateView
 from . import views
 from . import document_views
 from . import integrated_email_views
+from . import agent_settings_views
 
 urlpatterns = [
     # API endpoints first (more specific)
@@ -47,10 +48,27 @@ urlpatterns = [
     path('api/sessions/<str:session_id>/history/', views.SessionHistoryView.as_view(), name='session_history'),
     path('api/sessions/<str:session_id>/', views.SessionClearView.as_view(), name='session_clear'),
     
+    # Agent Settings API endpoints
+    path('api/agents/', agent_settings_views.agent_configurations, name='agent_list'),
+    path('api/agents/<int:agent_id>/', agent_settings_views.agent_configuration_detail, name='agent_detail'),
+    path('api/agents/<int:agent_id>/activate/', agent_settings_views.activate_agent, name='agent_activate'),
+    path('api/agents/<str:agent_id>/activate/', agent_settings_views.activate_agent, name='system_agent_activate'),
+    path('api/agents/<int:agent_id>/test/', agent_settings_views.test_agent, name='agent_test'),
+    path('api/agents/import/', agent_settings_views.import_agents, name='agent_import'),
+    path('api/agents/export/', agent_settings_views.export_agents, name='agent_export'),
+    path('api/agents/templates/', agent_settings_views.agent_templates, name='agent_template_list'),
+    path('api/agents/sessions/', agent_settings_views.agent_sessions, name='agent_session_list'),
+    path('api/agents/current/', agent_settings_views.current_agent, name='current_agent'),
+    path('api/agents/system/', agent_settings_views.system_agents, name='system_agent_list'),
+    path('api/agents/tools/', agent_settings_views.available_tools, name='available_tools'),
+    path('api/agents/enhance-prompt/', agent_settings_views.enhance_prompt, name='enhance_prompt'),
+    path('api/agents/create-instance/', agent_settings_views.create_agent_instance, name='create_agent_instance'),
+    
     # Main pages (less specific patterns)
     path('', views.ChatView.as_view(), name='chat_home'),
     path('chat/', views.ChatView.as_view(), name='chat_interface'),
     path('email/', integrated_email_views.email_automation_page, name='email_automation'),
+    path('settings/', agent_settings_views.SettingsView.as_view(), name='settings'),
     
     # Document Management System
     path('dms/', document_views.DMSView.as_view(), name='dms'),

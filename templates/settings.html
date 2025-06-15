@@ -1,0 +1,960 @@
+{% extends "base.html" %}
+
+{% block title %}Agent Settings - RAGAgent{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="min-h-screen w-full p-4 md:p-6" x-data="agentSettingsApp()" x-init="init()">
+    <!-- Header Section -->
+    <div class="glass-strong rounded-2xl p-4 md:p-6 mb-6">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div class="flex-shrink-0">
+                <h2 class="text-2xl md:text-3xl font-bold text-white mb-2">Agent Settings & Management</h2>
+                <p class="text-white/70 text-sm md:text-base">Configure, create, and manage AI agents with custom prompts and capabilities</p>
+            </div>
+            <div class="flex flex-wrap gap-2 md:gap-3">
+                <button @click="showCreateModal = true" 
+                        class="btn-primary px-4 md:px-6 py-2 md:py-3 text-sm md:text-base">
+                    <i class="fas fa-plus mr-2"></i>Create New Agent
+                </button>
+                <button @click="showTemplatesModal = true" 
+                        class="btn-secondary px-4 md:px-6 py-2 md:py-3 text-sm md:text-base">
+                    <i class="fas fa-layer-group mr-2"></i>Agent Templates
+                </button>
+                <button @click="importExportModal = true" 
+                        class="btn-secondary px-4 md:px-6 py-2 md:py-3 text-sm md:text-base">
+                    <i class="fas fa-exchange-alt mr-2"></i>Import/Export
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Agent Section -->
+    <div class="glass rounded-2xl p-6 mb-6" x-show="currentAgent">
+        <h3 class="text-xl font-semibold text-white mb-4">Currently Active Agent</h3>
+        <div class="bg-white/10 rounded-xl p-4 border border-white/20">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h4 class="text-white font-medium" x-text="currentAgent?.name"></h4>
+                    <p class="text-white/70 text-sm" x-text="currentAgent?.description"></p>
+                    <div class="flex items-center gap-4 mt-2 text-xs text-white/60">
+                        <span><i class="fas fa-cog mr-1"></i><span x-text="currentAgent?.model"></span></span>
+                        <span><i class="fas fa-thermometer-half mr-1"></i>Temp: <span x-text="currentAgent?.temperature"></span></span>
+                        <span><i class="fas fa-clock mr-1"></i>Max: <span x-text="currentAgent?.max_turns"></span> turns</span>
+                    </div>
+                </div>
+                <button @click="switchAgent()" 
+                        class="btn-secondary px-4 py-2 text-sm">
+                    <i class="fas fa-exchange-alt mr-2"></i>Switch Agent
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent Management Tabs -->
+    <div class="glass rounded-2xl p-6 mb-6">
+        <div class="flex border-b border-white/20 mb-6">
+            <button @click="activeTab = 'my-agents'" 
+                    :class="activeTab === 'my-agents' ? 'border-blue-400 text-blue-400' : 'border-transparent text-white/70'"
+                    class="px-4 py-2 border-b-2 font-medium transition-colors">
+                My Agents
+            </button>
+            <button @click="activeTab = 'system-agents'" 
+                    :class="activeTab === 'system-agents' ? 'border-blue-400 text-blue-400' : 'border-transparent text-white/70'"
+                    class="px-4 py-2 border-b-2 font-medium transition-colors ml-6">
+                System Agents
+            </button>
+            <button @click="activeTab = 'agent-sessions'" 
+                    :class="activeTab === 'agent-sessions' ? 'border-blue-400 text-blue-400' : 'border-transparent text-white/70'"
+                    class="px-4 py-2 border-b-2 font-medium transition-colors ml-6">
+                Active Sessions
+            </button>
+        </div>
+
+        <!-- My Agents Tab -->
+        <div x-show="activeTab === 'my-agents'">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-white">Custom Agents</h3>
+                <div class="flex gap-2">
+                    <select x-model="agentFilter" @change="filterAgents()" 
+                            class="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm">
+                        <option value="">All Agents</option>
+                        <option value="with_tools">With Tools</option>
+                        <option value="without_tools">Without Tools</option>
+                        <option value="active">Active Only</option>
+                        <option value="default">Default Only</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Custom Agents Grid -->
+            <div x-show="filteredAgents.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <template x-for="agent in filteredAgents" :key="agent.id">
+                    <div class="bg-white/10 rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all duration-200">
+                        <div class="flex items-start justify-between mb-3">
+                            <div>
+                                <h4 class="text-white font-medium" x-text="agent.name"></h4>
+                                <p class="text-white/60 text-xs" x-text="agent.tools_enabled.length ? `${agent.tools_enabled.length} tools enabled` : 'No tools'"></p>
+                            </div>
+                            <div class="flex gap-1">
+                                <div x-show="agent.is_default" class="w-2 h-2 bg-green-400 rounded-full" title="Default Agent"></div>
+                                <div x-show="agent.is_active" class="w-2 h-2 bg-blue-400 rounded-full" title="Active"></div>
+                            </div>
+                        </div>
+                        
+                        <p class="text-white/70 text-sm mb-3 line-clamp-2" x-text="agent.description"></p>
+                        
+                        <div class="flex items-center gap-2 text-xs text-white/50 mb-3">
+                            <span x-text="agent.model"></span>
+                            <span>•</span>
+                            <span>Temp: <span x-text="agent.temperature"></span></span>
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <button @click="editAgent(agent)" 
+                                    class="flex-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-3 py-2 rounded-lg text-sm transition-colors">
+                                <i class="fas fa-edit mr-1"></i>Edit
+                            </button>
+                            <button @click="activateAgent(agent)" 
+                                    class="flex-1 bg-green-500/20 hover:bg-green-500/30 text-green-300 px-3 py-2 rounded-lg text-sm transition-colors">
+                                <i class="fas fa-play mr-1"></i>Activate
+                            </button>
+                            <button @click="duplicateAgent(agent)" 
+                                    class="bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 px-3 py-2 rounded-lg text-sm transition-colors">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            <button @click="deleteAgent(agent)" 
+                                    class="bg-red-500/20 hover:bg-red-500/30 text-red-300 px-3 py-2 rounded-lg text-sm transition-colors">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Empty State -->
+            <div x-show="filteredAgents.length === 0" class="text-center py-12">
+                <div class="text-white/40 mb-4">
+                    <i class="fas fa-robot text-4xl"></i>
+                </div>
+                <h3 class="text-lg font-medium text-white/70 mb-2">No Custom Agents Found</h3>
+                <p class="text-white/50 mb-4">Create your first custom agent to get started</p>
+                <button @click="showCreateModal = true" 
+                        class="btn-primary px-6 py-3">
+                    <i class="fas fa-plus mr-2"></i>Create New Agent
+                </button>
+            </div>
+        </div>
+
+        <!-- System Agents Tab -->
+        <div x-show="activeTab === 'system-agents'">
+            <h3 class="text-lg font-semibold text-white mb-4">Built-in System Agents</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <template x-for="agent in systemAgents" :key="agent.id">
+                    <div class="bg-white/10 rounded-xl p-4 border border-white/20">
+                        <div class="flex items-start justify-between mb-3">
+                            <div>
+                                <h4 class="text-white font-medium" x-text="agent.name"></h4>
+                                <p class="text-white/60 text-xs" x-text="agent.tools_enabled ? `${agent.tools_enabled.length} tools available` : 'No tools'"></p>
+                            </div>
+                            <div class="bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded text-xs">System</div>
+                        </div>
+                        
+                        <p class="text-white/70 text-sm mb-3" x-text="agent.description"></p>
+                        
+                        <div class="flex gap-2">
+                            <button @click="viewAgent(agent)" 
+                                    class="flex-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-3 py-2 rounded-lg text-sm transition-colors">
+                                <i class="fas fa-eye mr-1"></i>View Details
+                            </button>
+                            <button @click="activateAgent(agent)" 
+                                    class="flex-1 bg-green-500/20 hover:bg-green-500/30 text-green-300 px-3 py-2 rounded-lg text-sm transition-colors">
+                                <i class="fas fa-play mr-1"></i>Activate
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Active Sessions Tab -->
+        <div x-show="activeTab === 'agent-sessions'">
+            <h3 class="text-lg font-semibold text-white mb-4">Active Agent Sessions</h3>
+            <div class="space-y-3">
+                <template x-for="session in activeSessions" :key="session.id">
+                    <div class="bg-white/10 rounded-xl p-4 border border-white/20">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="text-white font-medium" x-text="session.agent_config.name"></h4>
+                                <p class="text-white/60 text-sm">Session: <span x-text="session.session_id"></span></p>
+                                <div class="flex items-center gap-4 mt-1 text-xs text-white/50">
+                                    <span><i class="fas fa-comments mr-1"></i><span x-text="session.messages_count"></span> messages</span>
+                                    <span><i class="fas fa-clock mr-1"></i>Last: <span x-text="formatTime(session.last_activity)"></span></span>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button @click="joinSession(session)" 
+                                        class="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-3 py-2 rounded-lg text-sm transition-colors">
+                                    <i class="fas fa-arrow-right mr-1"></i>Join
+                                </button>
+                                <button @click="endSession(session)" 
+                                        class="bg-red-500/20 hover:bg-red-500/30 text-red-300 px-3 py-2 rounded-lg text-sm transition-colors">
+                                    <i class="fas fa-stop mr-1"></i>End
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create/Edit Agent Modal -->
+    <div x-show="showCreateModal || showEditModal" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="glass-strong rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+             @click.away="closeModals()">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-semibold text-white" x-text="showEditModal ? 'Edit Agent' : 'Create New Agent'"></h3>
+                    <button @click="closeModals()" class="text-white/60 hover:text-white">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+
+                <form @submit.prevent="saveAgent()" class="space-y-6">
+                    <!-- Basic Information -->
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-white mb-2">Agent Name</label>
+                            <input type="text" x-model="agentForm.name" required
+                                   class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="Enter agent name">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-white mb-2">Description</label>
+                        <textarea x-model="agentForm.description" rows="2"
+                                  class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                  placeholder="Brief description of the agent's purpose"></textarea>
+                    </div>
+
+                    <!-- Core Instructions -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-sm font-medium text-white">Agent Instructions (Main Prompt)</label>
+                            <button type="button" @click="enhancePrompt()" :disabled="isLoading"
+                                    class="px-3 py-1 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded-lg text-xs transition-colors disabled:opacity-50">
+                                <i class="fas fa-magic mr-1" :class="{'fa-spin': isLoading}"></i>
+                                <span x-show="!isLoading">Enhance Prompt</span>
+                                <span x-show="isLoading">Enhancing...</span>
+                            </button>
+                        </div>
+                        <textarea x-model="agentForm.instructions" rows="8" required
+                                  class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono text-sm"
+                                  placeholder="Enter the main instructions and prompt for your agent..."></textarea>
+                        <p class="text-white/50 text-xs mt-1">This is the primary prompt that defines your agent's behavior and personality.</p>
+                    </div>
+
+                    <!-- Available Tools -->
+                    <div>
+                        <label class="block text-sm font-medium text-white mb-3">Available Tools</label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <template x-for="tool in availableTools" :key="tool.id">
+                                <div class="bg-white/5 border border-white/10 rounded-lg p-3 hover:bg-white/10 transition-colors">
+                                    <label class="flex items-start cursor-pointer">
+                                        <input type="checkbox" 
+                                               :value="tool.id" 
+                                               x-model="agentForm.tools_enabled"
+                                               class="mt-1 mr-3 rounded border-white/20 bg-white/10 text-blue-500 focus:ring-blue-500">
+                                        <div class="flex-1">
+                                            <div class="flex items-center justify-between">
+                                                <h4 class="text-white text-sm font-medium" x-text="tool.name"></h4>
+                                                <span class="text-xs px-2 py-1 bg-blue-500/20 text-blue-300 rounded" x-text="tool.category"></span>
+                                            </div>
+                                            <p class="text-white/70 text-xs mt-1" x-text="tool.description"></p>
+                                        </div>
+                                    </label>
+                                </div>
+                            </template>
+                        </div>
+                        <p class="text-white/50 text-xs mt-2">Select the tools that your agent can use to perform specific tasks.</p>
+                    </div>
+
+                    <!-- Model Configuration -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-white mb-2">Model</label>
+                            <select x-model="agentForm.model" 
+                                    class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="gpt-4o-mini">GPT-4o Mini</option>
+                                <option value="gpt-4o">GPT-4o</option>
+                                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-white mb-2">Temperature</label>
+                            <input type="number" x-model="agentForm.temperature" min="0" max="2" step="0.1"
+                                   class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-white mb-2">Max Turns</label>
+                            <input type="number" x-model="agentForm.max_turns" min="1" max="100"
+                                   class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-white mb-2">Timeout (s)</label>
+                            <input type="number" x-model="agentForm.timeout" min="5" max="300"
+                                   class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <!-- Advanced Parameters -->
+                    <div x-show="showAdvanced" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-white mb-2">Top P</label>
+                            <input type="number" x-model="agentForm.top_p" min="0" max="1" step="0.1"
+                                   class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-white mb-2">Frequency Penalty</label>
+                            <input type="number" x-model="agentForm.frequency_penalty" min="-2" max="2" step="0.1"
+                                   class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-white mb-2">Presence Penalty</label>
+                            <input type="number" x-model="agentForm.presence_penalty" min="-2" max="2" step="0.1"
+                                   class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <button type="button" @click="showAdvanced = !showAdvanced" 
+                            class="text-blue-300 hover:text-blue-200 text-sm">
+                        <i :class="showAdvanced ? 'fas fa-chevron-up' : 'fas fa-chevron-down'" class="mr-1"></i>
+                        <span x-text="showAdvanced ? 'Hide Advanced Settings' : 'Show Advanced Settings'"></span>
+                    </button>
+
+                    <!-- System Context -->
+                    <div>
+                        <label class="block text-sm font-medium text-white mb-2">System Context</label>
+                        <textarea x-model="agentForm.system_context" rows="4"
+                                  class="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono text-sm"
+                                  placeholder="Additional system context, background information, or specialized knowledge..."></textarea>
+                        <p class="text-white/50 text-xs mt-1">Optional additional context that helps the agent understand its role and environment.</p>
+                    </div>
+
+                    <!-- Options -->
+                    <div class="flex items-center gap-6">
+                        <label class="flex items-center">
+                            <input type="checkbox" x-model="agentForm.is_active" 
+                                   class="mr-2 rounded border-white/20 bg-white/10 text-blue-500 focus:ring-blue-500">
+                            <span class="text-white text-sm">Active</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" x-model="agentForm.is_default" 
+                                   class="mr-2 rounded border-white/20 bg-white/10 text-blue-500 focus:ring-blue-500">
+                            <span class="text-white text-sm">Set as default</span>
+                        </label>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex justify-end gap-3 pt-4 border-t border-white/20">
+                        <button type="button" @click="closeModals()" 
+                                class="px-6 py-3 border border-white/20 text-white/70 hover:text-white hover:border-white/40 rounded-lg transition-colors">
+                            Cancel
+                        </button>
+                        <button type="button" @click="testAgent()" 
+                                class="px-6 py-3 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded-lg transition-colors">
+                            <i class="fas fa-flask mr-2"></i>Test Agent
+                        </button>
+                        <button type="button" @click="createAgentInstance()" x-show="showEditModal && agentForm.id"
+                                class="px-6 py-3 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg transition-colors">
+                            <i class="fas fa-play mr-2"></i>Create Instance
+                        </button>
+                        <button type="submit" :disabled="isLoading"
+                                class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50">
+                            <span x-show="!isLoading" x-text="showEditModal ? 'Update Agent' : 'Create Agent'"></span>
+                            <span x-show="isLoading"><i class="fas fa-spinner fa-spin mr-2"></i>Saving...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent Templates Modal -->
+    <div x-show="showTemplatesModal" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="glass-strong rounded-2xl w-full max-w-4xl max-h-[80vh] overflow-y-auto"
+             @click.away="showTemplatesModal = false">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-semibold text-white">Agent Templates</h3>
+                    <button @click="showTemplatesModal = false" class="text-white/60 hover:text-white">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <template x-for="template in agentTemplates" :key="template.id">
+                        <div class="bg-white/10 rounded-xl p-4 border border-white/20">
+                            <h4 class="text-white font-medium mb-2" x-text="template.name"></h4>
+                            <p class="text-white/70 text-sm mb-3" x-text="template.description"></p>
+                            <div class="flex items-center gap-2 text-xs text-white/50 mb-3">
+                                <span x-text="template.recommended_model"></span>
+                                <span>•</span>
+                                <span>Temp: <span x-text="template.recommended_temperature"></span></span>
+                            </div>
+                            <button @click="createFromTemplate(template)" 
+                                    class="w-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-4 py-2 rounded-lg text-sm transition-colors">
+                                <i class="fas fa-plus mr-2"></i>Create from Template
+                            </button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import/Export Modal -->
+    <div x-show="importExportModal" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="glass-strong rounded-2xl w-full max-w-2xl"
+             @click.away="importExportModal = false">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-semibold text-white">Import/Export Agents</h3>
+                    <button @click="importExportModal = false" class="text-white/60 hover:text-white">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+
+                <div class="space-y-6">
+                    <!-- Export Section -->
+                    <div>
+                        <h4 class="text-white font-medium mb-3">Export Agents</h4>
+                        <div class="flex gap-3">
+                            <button @click="exportAgents('all')" 
+                                    class="btn-secondary px-4 py-2 text-sm">
+                                <i class="fas fa-download mr-2"></i>Export All
+                            </button>
+                            <button @click="exportAgents('selected')" 
+                                    class="btn-secondary px-4 py-2 text-sm">
+                                <i class="fas fa-check-square mr-2"></i>Export Selected
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Import Section -->
+                    <div>
+                        <h4 class="text-white font-medium mb-3">Import Agents</h4>
+                        <div class="border-2 border-dashed border-white/20 rounded-lg p-6 text-center">
+                            <input type="file" @change="handleFileImport($event)" 
+                                   accept=".json" class="hidden" id="importFile">
+                            <label for="importFile" class="cursor-pointer">
+                                <i class="fas fa-upload text-2xl text-white/40 mb-2"></i>
+                                <p class="text-white/70">Click to select or drag and drop JSON file</p>
+                                <p class="text-white/50 text-xs mt-1">Only JSON files are supported</p>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications Container -->
+    <div class="fixed top-4 right-4 z-50 space-y-2" id="notifications-container">
+        <!-- Notifications will be dynamically added here -->
+    </div>
+</div>
+
+<script>
+function agentSettingsApp() {
+    return {
+        // UI State
+        activeTab: 'my-agents',
+        showCreateModal: false,
+        showEditModal: false,
+        showTemplatesModal: false,
+        importExportModal: false,
+        showAdvanced: false,
+        isLoading: false,
+
+        // Data
+        agents: [],
+        systemAgents: [],
+        activeSessions: [],
+        agentTemplates: [],
+        availableTools: [],
+        currentAgent: null,
+        filteredAgents: [],
+        agentFilter: '',
+
+        // Form
+        agentForm: {
+            id: null,
+            name: '',
+            description: '',
+            instructions: '',
+            model: 'gpt-4o-mini',
+            temperature: 0.7,
+            max_turns: 20,
+            timeout: 30,
+            top_p: 1.0,
+            frequency_penalty: 0.0,
+            presence_penalty: 0.0,
+            system_context: '',
+            tools_enabled: [],
+            is_active: true,
+            is_default: false
+        },
+
+        async init() {
+            await this.loadAgents();
+            await this.loadSystemAgents();
+            await this.loadActiveSessions();
+            await this.loadAgentTemplates();
+            await this.loadAvailableTools();
+            await this.loadCurrentAgent();
+            this.filterAgents();
+        },
+
+        async loadAgents() {
+            try {
+                const response = await fetch('/api/agents/');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.agents = data.agents || [];
+                }
+            } catch (error) {
+                console.error('Error loading agents:', error);
+                this.showNotification('Failed to load agents', 'error');
+            }
+        },
+
+        async loadSystemAgents() {
+            try {
+                const response = await fetch('/api/agents/system/');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.systemAgents = data.agents || [];
+                }
+            } catch (error) {
+                console.error('Error loading system agents:', error);
+            }
+        },
+
+        async loadActiveSessions() {
+            try {
+                const response = await fetch('/api/agents/sessions/');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.activeSessions = data.sessions || [];
+                }
+            } catch (error) {
+                console.error('Error loading active sessions:', error);
+            }
+        },
+
+        async loadAgentTemplates() {
+            try {
+                const response = await fetch('/api/agents/templates/');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.agentTemplates = data.templates || [];
+                }
+            } catch (error) {
+                console.error('Error loading agent templates:', error);
+            }
+        },
+
+        async loadCurrentAgent() {
+            try {
+                const response = await fetch('/api/agents/current/');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.currentAgent = data.agent;
+                }
+            } catch (error) {
+                console.error('Error loading current agent:', error);
+            }
+        },
+
+        async loadAvailableTools() {
+            try {
+                const response = await fetch('/api/agents/tools/');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.availableTools = data.tools || [];
+                }
+            } catch (error) {
+                console.error('Error loading available tools:', error);
+            }
+        },
+
+        filterAgents() {
+            this.filteredAgents = this.agents.filter(agent => {
+                if (!this.agentFilter) return true;
+                
+                switch (this.agentFilter) {
+                    case 'with_tools':
+                        return agent.tools_enabled && agent.tools_enabled.length > 0;
+                    case 'without_tools':
+                        return !agent.tools_enabled || agent.tools_enabled.length === 0;
+                    case 'active':
+                        return agent.is_active;
+                    case 'default':
+                        return agent.is_default;
+                    default:
+                        return true;
+                }
+            });
+        },
+
+        editAgent(agent) {
+            this.agentForm = { ...agent };
+            this.showEditModal = true;
+        },
+
+        async enhancePrompt() {
+            if (!this.agentForm.instructions.trim()) {
+                this.showNotification('Please enter some instructions first', 'warning');
+                return;
+            }
+            
+            try {
+                this.isLoading = true;
+                const response = await fetch('/api/agents/enhance-prompt/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken()
+                    },
+                    body: JSON.stringify({
+                        prompt: this.agentForm.instructions,
+                        agent_name: this.agentForm.name,
+                        agent_purpose: this.agentForm.description
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    this.agentForm.instructions = data.enhanced_prompt;
+                    this.showNotification('Prompt enhanced successfully!', 'success');
+                } else {
+                    throw new Error('Failed to enhance prompt');
+                }
+            } catch (error) {
+                console.error('Error enhancing prompt:', error);
+                this.showNotification('Failed to enhance prompt', 'error');
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        async createAgentInstance() {
+            if (!this.agentForm.id) {
+                this.showNotification('Please save the agent first', 'warning');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/agents/create-instance/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken()
+                    },
+                    body: JSON.stringify({
+                        agent_config_id: this.agentForm.id
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    this.showNotification(`Agent instance "${data.agent_name}" created successfully!`, 'success');
+                } else {
+                    throw new Error('Failed to create agent instance');
+                }
+            } catch (error) {
+                console.error('Error creating agent instance:', error);
+                this.showNotification('Failed to create agent instance', 'error');
+            }
+        },
+
+        duplicateAgent(agent) {
+            this.agentForm = { 
+                ...agent, 
+                id: null, 
+                name: `${agent.name} (Copy)`,
+                is_default: false 
+            };
+            this.showCreateModal = true;
+        },
+
+        async deleteAgent(agent) {
+            if (confirm(`Are you sure you want to delete "${agent.name}"?`)) {
+                try {
+                    const response = await fetch(`/api/agents/${agent.id}/`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRFToken': this.getCsrfToken()
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        await this.loadAgents();
+                        this.filterAgents();
+                        this.showNotification('Agent deleted successfully', 'success');
+                    } else {
+                        throw new Error('Failed to delete agent');
+                    }
+                } catch (error) {
+                    console.error('Error deleting agent:', error);
+                    this.showNotification('Failed to delete agent', 'error');
+                }
+            }
+        },
+
+        async saveAgent() {
+            this.isLoading = true;
+            try {
+                const url = this.showEditModal ? `/api/agents/${this.agentForm.id}/` : '/api/agents/';
+                const method = this.showEditModal ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken()
+                    },
+                    body: JSON.stringify(this.agentForm)
+                });
+                
+                if (response.ok) {
+                    await this.loadAgents();
+                    this.filterAgents();
+                    this.closeModals();
+                    this.showNotification(
+                        this.showEditModal ? 'Agent updated successfully' : 'Agent created successfully', 
+                        'success'
+                    );
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to save agent');
+                }
+            } catch (error) {
+                console.error('Error saving agent:', error);
+                this.showNotification(error.message, 'error');
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        async activateAgent(agent) {
+            try {
+                const response = await fetch(`/api/agents/${agent.id}/activate/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': this.getCsrfToken()
+                    }
+                });
+                
+                if (response.ok) {
+                    this.currentAgent = agent;
+                    this.showNotification(`Activated "${agent.name}"`, 'success');
+                } else {
+                    throw new Error('Failed to activate agent');
+                }
+            } catch (error) {
+                console.error('Error activating agent:', error);
+                this.showNotification('Failed to activate agent', 'error');
+            }
+        },
+
+        async testAgent() {
+            if (!this.agentForm.instructions.trim()) {
+                this.showNotification('Please enter agent instructions first', 'warning');
+                return;
+            }
+            
+            // Simple test - open chat in new tab with this agent configuration
+            const testData = encodeURIComponent(JSON.stringify(this.agentForm));
+            window.open(`/chat/?test_agent=${testData}`, '_blank');
+        },
+
+        createFromTemplate(template) {
+            this.agentForm = {
+                id: null,
+                name: template.name,
+                description: template.description,
+                instructions: template.instructions_template,
+                system_context: template.system_context_template,
+                model: template.recommended_model,
+                temperature: template.recommended_temperature,
+                max_turns: 20,
+                timeout: 30,
+                top_p: 1.0,
+                frequency_penalty: 0.0,
+                presence_penalty: 0.0,
+                tools_enabled: template.tools_enabled || [],
+                is_active: true,
+                is_default: false
+            };
+            this.showTemplatesModal = false;
+            this.showCreateModal = true;
+        },
+
+        async exportAgents(type) {
+            try {
+                const url = type === 'all' ? '/api/agents/export/' : '/api/agents/export/selected/';
+                const response = await fetch(url);
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const downloadUrl = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = `agents_export_${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(downloadUrl);
+                    document.body.removeChild(a);
+                    
+                    this.showNotification('Agents exported successfully', 'success');
+                } else {
+                    throw new Error('Failed to export agents');
+                }
+            } catch (error) {
+                console.error('Error exporting agents:', error);
+                this.showNotification('Failed to export agents', 'error');
+            }
+        },
+
+        async handleFileImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const response = await fetch('/api/agents/import/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': this.getCsrfToken()
+                    },
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    await this.loadAgents();
+                    this.filterAgents();
+                    this.importExportModal = false;
+                    this.showNotification(`Imported ${result.imported_count} agents successfully`, 'success');
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to import agents');
+                }
+            } catch (error) {
+                console.error('Error importing agents:', error);
+                this.showNotification(error.message, 'error');
+            }
+        },
+
+        closeModals() {
+            this.showCreateModal = false;
+            this.showEditModal = false;
+            this.agentForm = {
+                id: null,
+                name: '',
+                description: '',
+                instructions: '',
+                model: 'gpt-4o-mini',
+                temperature: 0.7,
+                max_turns: 20,
+                timeout: 30,
+                top_p: 1.0,
+                frequency_penalty: 0.0,
+                presence_penalty: 0.0,
+                system_context: '',
+                tools_enabled: [],
+                is_active: true,
+                is_default: false
+            };
+        },
+
+        formatTime(timestamp) {
+            return new Date(timestamp).toLocaleString();
+        },
+
+        showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `bg-white/10 backdrop-blur-lg border border-white/20 rounded-lg p-4 text-white shadow-lg transform transition-all duration-300 opacity-0 translate-x-full`;
+            
+            const typeColors = {
+                success: 'border-green-400/30 bg-green-500/10',
+                error: 'border-red-400/30 bg-red-500/10',
+                warning: 'border-yellow-400/30 bg-yellow-500/10',
+                info: 'border-blue-400/30 bg-blue-500/10'
+            };
+            
+            notification.className += ` ${typeColors[type] || typeColors.info}`;
+            notification.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span>${message}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-3 text-white/60 hover:text-white">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            
+            document.getElementById('notifications-container').appendChild(notification);
+            
+            // Animate in
+            setTimeout(() => {
+                notification.classList.remove('opacity-0', 'translate-x-full');
+            }, 100);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.classList.add('opacity-0', 'translate-x-full');
+                    setTimeout(() => {
+                        if (notification.parentElement) {
+                            notification.remove();
+                        }
+                    }, 300);
+                }
+            }, 5000);
+        },
+
+        getCsrfToken() {
+            return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+        }
+    }
+}
+</script>
+{% endblock %}

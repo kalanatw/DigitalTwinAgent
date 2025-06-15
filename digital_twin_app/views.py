@@ -4,6 +4,8 @@ Django Views and FastAPI Integration for Digital Twin Application
 import logging
 import uuid
 import asyncio
+import threading
+import concurrent.futures
 from typing import Dict, Any
 from django.shortcuts import render
 from django.http import JsonResponse
@@ -11,6 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.utils.decorators import method_decorator
 from django.views import View
+from asgiref.sync import sync_to_async
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -19,11 +22,78 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import json
 
-from .agent import get_agent_instance
+from .agent import get_agent_instance, get_agent_instance_async
 from .models import ChatSession, ChatMessage
 from .serializers import ChatRequestSerializer, ChatResponseSerializer
 
 logger = logging.getLogger(__name__)
+
+# Thread pool executor for running async operations in separate threads
+_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=10, thread_name_prefix="async-agent")
+
+def run_async_in_thread(async_func, *args, **kwargs):
+    """
+    Run an async function in a separate thread with its own event loop.
+    This completely isolates async operations from Django's synchronous context.
+    """
+    def run_in_new_loop():
+        # Create a new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            # Import Django modules in the thread to avoid context issues
+            import os
+            os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'digital_twin.settings')
+            import django
+            if not django.apps.apps.ready:
+                django.setup()
+            
+            # Clear any existing async context to ensure complete isolation
+            import contextvars
+            ctx = contextvars.copy_context()
+            
+            logger.info(f"🔧 Running async function in separate thread: {async_func.__name__}")
+            
+            # Force sync database settings for this thread
+            from django.db import connection
+            # Close any existing database connections to force fresh ones
+            connection.close()
+            
+            # Run the async function with completely isolated context
+            def run_with_context():
+                return loop.run_until_complete(async_func(*args, **kwargs))
+            
+            result = ctx.run(run_with_context)
+            logger.info(f"✅ Successfully completed async function: {async_func.__name__}")
+            return result
+        except Exception as e:
+            logger.error(f"❌ Error in async thread for {async_func.__name__}: {e}")
+            logger.error(f"Error type: {type(e).__name__}")
+            if "async context" in str(e):
+                logger.error("🚨 ASYNC CONTEXT ERROR DETECTED - This should not happen in thread!")
+                logger.error("Falling back to pure sync mode in this thread...")
+                # Instead of raising, try to run the sync version
+                raise
+            raise
+        finally:
+            # Clean up the loop and connections
+            try:
+                from django.db import connection
+                connection.close()
+            except:
+                pass
+            loop.close()
+    
+    # Submit to thread pool and wait for result
+    logger.info(f"📤 Submitting to thread pool: {async_func.__name__}")
+    future = _thread_pool.submit(run_in_new_loop)
+    try:
+        result = future.result(timeout=60)  # 60 second timeout
+        logger.info(f"📥 Thread pool completed successfully: {async_func.__name__}")
+        return result
+    except Exception as e:
+        logger.error(f"❌ Thread pool execution failed for {async_func.__name__}: {e}")
+        raise
 
 # FastAPI app instance
 fastapi_app = FastAPI(
@@ -46,6 +116,7 @@ class ChatRequest(BaseModel):
     message: str
     session_id: str = None
     twin_version_id: str = None
+    test_agent: dict = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -68,25 +139,72 @@ class ChatView(View):
 class ApiChatView(View):
     """Django API view for chat functionality."""
     
-    async def post(self, request):
+    def post(self, request):
         """Handle chat message via Django."""
         try:
             data = json.loads(request.body)
             message = data.get('message', '')
             session_id = data.get('session_id') or str(uuid.uuid4())
             twin_version_id = data.get('twin_version_id')
+            test_agent_config = data.get('test_agent')
             
             if not message:
                 return JsonResponse({'error': 'Message is required'}, status=400)
             
-            # Get agent instance and process message
-            agent = get_agent_instance()
+            # Define async function to process message
+            async def process_message_async():
+                # Get agent instance (use test agent if provided)
+                if test_agent_config:
+                    # Create a test agent instance using the provided configuration
+                    from .agent import DigitalAssetsManagerAgent
+                    from agents import set_default_openai_key
+                    from django.conf import settings
+                    
+                    # Ensure OpenAI key is set
+                    set_default_openai_key(settings.OPENAI_API_KEY)
+                    
+                    # Create test agent with custom configuration
+                    agent = DigitalAssetsManagerAgent(custom_config=test_agent_config)
+                    
+                    # Add available tools if specified
+                    tools_enabled = test_agent_config.get('tools_enabled', [])
+                    if tools_enabled:
+                        logger.info(f"Test agent configured with tools: {tools_enabled}")
+                    
+                    logger.info(f"Using test agent: {test_agent_config.get('name', 'Test Agent')}")
+                else:
+                    # Use regular agent instance with user-specific configuration
+                    # For testing: use a fallback user ID if not authenticated
+                    user_id = request.user.id if request.user.is_authenticated else 1  # Use user ID 1 for testing
+                    agent = await get_agent_instance_async(user_id=user_id)
+                
+                # Include document context if twin version is specified
+                if twin_version_id:
+                    result = await agent.process_message_with_documents(message, session_id, twin_version_id)
+                else:
+                    result = await agent.process_message(message, session_id)
+                
+                return result
             
-            # Include document context if twin version is specified
-            if twin_version_id:
-                result = await agent.process_message_with_documents(message, session_id, twin_version_id)
-            else:
-                result = await agent.process_message(message, session_id)
+            # Run the async function in a separate thread to avoid Django's async context issues
+            try:
+                result = run_async_in_thread(process_message_async)
+            except Exception as e:
+                if "async context" in str(e):
+                    logger.warning(f"🚨 Async context error detected, falling back to sync agent loading: {e}")
+                    # Try with sync agent loading as fallback
+                    try:
+                        from .agent import get_agent_instance_sync
+                        agent = get_agent_instance_sync(user_id=request.user.id if request.user.is_authenticated else 1)
+                        # Process message synchronously
+                        import asyncio
+                        result = asyncio.run(agent.process_message(message, session_id))
+                        logger.info("✅ Successfully processed message with sync fallback")
+                    except Exception as sync_e:
+                        logger.error(f"❌ Sync fallback also failed: {sync_e}")
+                        raise e  # Re-raise original error
+                else:
+                    raise
             
             # Store in database (temporarily disabled due to async context)
             # TODO: Implement proper async database storage
@@ -109,28 +227,34 @@ class ApiChatView(View):
 class SessionHistoryView(View):
     """Django view for retrieving conversation history."""
     
-    async def get(self, request, session_id):
+    def get(self, request, session_id):
         """Get conversation history for a session."""
         try:
-            # Try to get from database first
-            try:
-                chat_session = ChatSession.objects.get(session_id=session_id)
-                messages = ChatMessage.objects.filter(session=chat_session).order_by('created_at')
-                history = []
-                for msg in messages:
-                    history.append({
-                        'id': msg.id,
-                        'role': msg.role,
-                        'content': msg.content,
-                        'tools_used': msg.tools_used or [],
-                        'timestamp': msg.created_at.isoformat()
-                    })
-                return JsonResponse({'session_id': session_id, 'messages': history})
-            except ChatSession.DoesNotExist:
-                # Try Redis cache
-                agent = get_agent_instance()
-                history = await agent.get_conversation_history(session_id)
-                return JsonResponse({'session_id': session_id, 'messages': history})
+            async def get_history_async():
+                # Try to get from database first
+                try:
+                    chat_session = await sync_to_async(ChatSession.objects.get)(session_id=session_id)
+                    messages = await sync_to_async(list)(ChatMessage.objects.filter(session=chat_session).order_by('created_at'))
+                    history = []
+                    for msg in messages:
+                        history.append({
+                            'id': msg.id,
+                            'role': msg.role,
+                            'content': msg.content,
+                            'tools_used': msg.tools_used or [],
+                            'timestamp': msg.created_at.isoformat()
+                        })
+                    return {'session_id': session_id, 'messages': history}
+                except ChatSession.DoesNotExist:
+                    # Try Redis cache
+                    user_id = request.user.id if request.user.is_authenticated else None
+                    agent = await get_agent_instance_async(user_id=user_id)
+                    history = await agent.get_conversation_history(session_id)
+                    return {'session_id': session_id, 'messages': history}
+            
+            # Run async function in separate thread
+            result = run_async_in_thread(get_history_async)
+            return JsonResponse(result)
                 
         except Exception as e:
             logger.error(f"Error retrieving history for session {session_id}: {e}")
@@ -141,22 +265,29 @@ class SessionHistoryView(View):
 class SessionClearView(View):
     """Django view for clearing conversation history."""
     
-    async def delete(self, request, session_id):
+    def delete(self, request, session_id):
         """Clear conversation history for a session."""
         try:
-            # Clear from database
-            try:
-                chat_session = ChatSession.objects.get(session_id=session_id)
-                ChatMessage.objects.filter(session=chat_session).delete()
-                chat_session.delete()
-            except ChatSession.DoesNotExist:
-                pass
+            async def clear_session_async():
+                # Clear from database
+                try:
+                    chat_session = await sync_to_async(ChatSession.objects.get)(session_id=session_id)
+                    await sync_to_async(ChatMessage.objects.filter(session=chat_session).delete)()
+                    await sync_to_async(chat_session.delete)()
+                except ChatSession.DoesNotExist:
+                    pass
+                
+                # Clear from Redis cache
+                user_id = getattr(request, 'user', None)
+                user_id = user_id.id if user_id and user_id.is_authenticated else None
+                agent = await get_agent_instance_async(user_id=user_id)
+                await agent.clear_conversation(session_id)
+                
+                return {'message': f'Session {session_id} cleared successfully'}
             
-            # Clear from Redis cache
-            agent = get_agent_instance()
-            await agent.clear_conversation(session_id)
-            
-            return JsonResponse({'message': f'Session {session_id} cleared successfully'})
+            # Run async function in separate thread
+            result = run_async_in_thread(clear_session_async)
+            return JsonResponse(result)
             
         except Exception as e:
             logger.error(f"Error clearing session {session_id}: {e}")
@@ -174,7 +305,8 @@ async def chat_endpoint(request: ChatRequest):
             raise HTTPException(status_code=400, detail="Message is required")
         
         # Get agent instance and process message
-        agent = get_agent_instance()
+        # Note: FastAPI doesn't have user context, so use default agent
+        agent = await get_agent_instance_async(user_id=None)
         
         # Include document context if twin version is specified
         if request.twin_version_id:
@@ -201,7 +333,7 @@ async def health_check():
 async def get_conversation_history(session_id: str):
     """Get conversation history for a session."""
     try:
-        agent = get_agent_instance()
+        agent = await get_agent_instance_async(user_id=None)  # FastAPI doesn't have user context
         history = await agent.get_conversation_history(session_id)
         return {"session_id": session_id, "history": history}
     except Exception as e:
@@ -213,7 +345,7 @@ async def get_conversation_history(session_id: str):
 async def clear_session(session_id: str):
     """Clear conversation history for a session."""
     try:
-        agent = get_agent_instance()
+        agent = await get_agent_instance_async(user_id=None)  # FastAPI doesn't have user context
         success = await agent.clear_conversation(session_id)
         if success:
             return {"message": f"Session {session_id} cleared successfully"}
@@ -259,14 +391,14 @@ def drf_chat_view(request):
         session_id = serializer.validated_data.get('session_id') or str(uuid.uuid4())
         
         try:
-            # Process message asynchronously
-            agent = get_agent_instance()
+            # Define async function to process message
+            async def process_message_async():
+                user_id = request.user.id if request.user.is_authenticated else None
+                agent = await get_agent_instance_async(user_id=user_id)
+                return await agent.process_message(message, session_id)
             
-            # Run async function in sync context
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(agent.process_message(message, session_id))
-            loop.close()
+            # Run async function in separate thread
+            result = run_async_in_thread(process_message_async)
             
             response_serializer = ChatResponseSerializer(data=result)
             if response_serializer.is_valid():
@@ -279,3 +411,16 @@ def drf_chat_view(request):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# Cleanup function for thread pool
+def cleanup_thread_pool():
+    """Clean up the thread pool when the application shuts down."""
+    global _thread_pool
+    if _thread_pool:
+        logger.info("Shutting down async agent thread pool...")
+        _thread_pool.shutdown(wait=True)
+        logger.info("Thread pool shutdown complete.")
+
+# Register cleanup function (Django will call this on shutdown if available)
+import atexit
+atexit.register(cleanup_thread_pool)

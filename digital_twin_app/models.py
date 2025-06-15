@@ -229,3 +229,100 @@ class EmailMessage(models.Model):
             email_address=self.sender, 
             is_active=True
         ).exists()
+
+
+class AgentConfiguration(models.Model):
+    """Model to store custom agent configurations and prompts"""
+    
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    
+    # Core agent settings
+    instructions = models.TextField(help_text="Main instructions/prompt for the agent")
+    model = models.CharField(max_length=50, default='gpt-4o-mini', 
+                           help_text="OpenAI model to use (e.g., gpt-4o-mini, gpt-4-turbo)")
+    max_turns = models.IntegerField(default=20, help_text="Maximum conversation turns")
+    timeout = models.IntegerField(default=30, help_text="Timeout in seconds")
+    
+    # Advanced settings
+    temperature = models.FloatField(default=0.7, help_text="Model temperature (0.0-2.0)")
+    top_p = models.FloatField(default=1.0, help_text="Top-p sampling parameter")
+    frequency_penalty = models.FloatField(default=0.0, help_text="Frequency penalty")
+    presence_penalty = models.FloatField(default=0.0, help_text="Presence penalty")
+    
+    # Context and specialization
+    system_context = models.TextField(blank=True, 
+                                    help_text="Additional system context and background")
+    tools_enabled = models.JSONField(default=list, blank=True,
+                                   help_text="List of enabled tools for this agent")
+    capabilities = models.JSONField(default=list, blank=True,
+                                  help_text="List of agent capabilities")
+    
+    # Metadata
+    is_active = models.BooleanField(default=True)
+    is_default = models.BooleanField(default=False)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_agents')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-updated_at']
+        
+    def __str__(self):
+        return self.name
+    
+    def save(self, *args, **kwargs):
+        # Ensure only one default agent per user
+        if self.is_default:
+            AgentConfiguration.objects.filter(
+                created_by=self.created_by,
+                is_default=True
+            ).exclude(id=self.id).update(is_default=False)
+        super().save(*args, **kwargs)
+
+
+class AgentTemplate(models.Model):
+    """Predefined agent templates for quick setup"""
+    name = models.CharField(max_length=100)
+    description = models.TextField()
+    
+    # Template content
+    instructions_template = models.TextField()
+    system_context_template = models.TextField(blank=True)
+    default_tools = models.JSONField(default=list)
+    default_capabilities = models.JSONField(default=list)
+    
+    # Recommended settings
+    recommended_model = models.CharField(max_length=50, default='gpt-4o-mini')
+    recommended_temperature = models.FloatField(default=0.7)
+    
+    # Metadata
+    is_system_template = models.BooleanField(default=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['name']
+        
+    def __str__(self):
+        return self.name
+
+
+class AgentSession(models.Model):
+    """Track active agent sessions and their configurations"""
+    session_id = models.CharField(max_length=100, unique=True)
+    agent_config = models.ForeignKey(AgentConfiguration, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    
+    # Session metadata
+    messages_count = models.IntegerField(default=0)
+    total_tokens_used = models.IntegerField(default=0)
+    last_activity = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        ordering = ['-last_activity']
+        
+    def __str__(self):
+        return f"Session {self.session_id} - {self.agent_config.name}"

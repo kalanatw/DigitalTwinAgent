@@ -421,6 +421,10 @@ function chatApp() {
         twinVersions: [],
         selectedTwinVersion: null,
 
+        // Test agent state
+        testAgent: null,
+        testAgentConfig: null,
+
         // Markdown rendering function
         renderMarkdown(content) {
             if (typeof marked === 'undefined') {
@@ -452,6 +456,9 @@ function chatApp() {
 
         // Initialize the component
         async init() {
+            // Check for test agent parameter
+            this.checkTestAgent();
+            
             // Show twin selector in navbar
             this.showNavbarTwinSelector();
             
@@ -464,6 +471,27 @@ function chatApp() {
             this.loadHistory();
             // Check connection status
             this.checkConnection();
+        },
+
+        // Check for test agent parameter in URL
+        checkTestAgent() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const testAgentData = urlParams.get('test_agent');
+            
+            if (testAgentData) {
+                try {
+                    const agentConfig = JSON.parse(decodeURIComponent(testAgentData));
+                    this.testAgent = agentConfig;
+                    
+                    // Add a message to indicate test mode
+                    this.addMessage('assistant', `🧪 **Test Mode**: Testing agent "${agentConfig.name}" with the following instructions:\n\n"${agentConfig.instructions.substring(0, 200)}${agentConfig.instructions.length > 200 ? '...' : ''}"`);
+                    
+                    // Store test agent configuration for API calls
+                    this.testAgentConfig = agentConfig;
+                } catch (error) {
+                    console.error('Error parsing test agent data:', error);
+                }
+            }
         },
 
         // Show twin selector in navbar (only on chat page)
@@ -699,6 +727,11 @@ function chatApp() {
                 // Include twin version ID if selected for document context
                 if (this.selectedTwinVersion) {
                     payload.twin_version_id = this.selectedTwinVersion.id;
+                }
+
+                // Include test agent configuration if testing
+                if (this.testAgentConfig) {
+                    payload.test_agent = this.testAgentConfig;
                 }
 
                 const response = await fetch('/api/chat/', {

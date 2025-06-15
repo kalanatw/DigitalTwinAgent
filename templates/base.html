@@ -529,6 +529,10 @@
                         <i class="fas fa-folder-open mr-1 xl:mr-2"></i>
                         <span class="hidden xl:inline">Documents</span>
                     </a>
+                    <a href="/settings/" class="text-white/80 hover:text-white px-2 xl:px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20">
+                        <i class="fas fa-cog mr-1 xl:mr-2"></i>
+                        <span class="hidden xl:inline">Settings</span>
+                    </a>
                     <a href="/about/" class="text-white/80 hover:text-white px-2 xl:px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20">
                         <i class="fas fa-info-circle mr-1 xl:mr-2"></i>
                         <span class="hidden xl:inline">About</span>
@@ -616,6 +620,11 @@
                        @click="mobileMenuOpen = false"
                        class="text-white/80 hover:text-white block px-3 py-3 rounded-xl text-base font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
                         <i class="fas fa-folder-open mr-3 w-5"></i>Document Management
+                    </a>
+                    <a href="/settings/" 
+                       @click="mobileMenuOpen = false"
+                       class="text-white/80 hover:text-white block px-3 py-3 rounded-xl text-base font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
+                        <i class="fas fa-cog mr-3 w-5"></i>Settings
                     </a>
                     <a href="/about/" 
                        @click="mobileMenuOpen = false"

@@ -180,8 +180,10 @@ class ApiChatView(View):
                 
                 # Include document context if twin version is specified
                 if twin_version_id:
+                    logger.info(f"🔍 RAG ENABLED: Processing message with documents from twin_version_id: {twin_version_id}")
                     result = await agent.process_message_with_documents(message, session_id, twin_version_id)
                 else:
+                    logger.info("💬 REGULAR CHAT: Processing message without RAG")
                     result = await agent.process_message(message, session_id)
                 
                 return result
@@ -196,9 +198,13 @@ class ApiChatView(View):
                     try:
                         from .agent import get_agent_instance_sync
                         agent = get_agent_instance_sync(user_id=request.user.id if request.user.is_authenticated else 1)
-                        # Process message synchronously
+                        # Process message synchronously - check for twin_version_id for RAG
                         import asyncio
-                        result = asyncio.run(agent.process_message(message, session_id))
+                        if twin_version_id:
+                            logger.info(f"🔍 Sync fallback with RAG for twin_version_id: {twin_version_id}")
+                            result = asyncio.run(agent.process_message_with_documents(message, session_id, twin_version_id))
+                        else:
+                            result = asyncio.run(agent.process_message(message, session_id))
                         logger.info("✅ Successfully processed message with sync fallback")
                     except Exception as sync_e:
                         logger.error(f"❌ Sync fallback also failed: {sync_e}")

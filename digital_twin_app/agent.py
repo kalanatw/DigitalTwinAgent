@@ -449,6 +449,23 @@ async def get_agent_instance_async(user_id=None) -> DigitalAssetsManagerAgent:
             
             # Try to get user-specific active configuration first
             try:
+                # First try to get the user's default agent
+                user_config = await sync_to_async(
+                    AgentConfiguration.objects.filter(
+                        created_by_id=user_id,
+                        is_active=True,
+                        is_default=True
+                    ).first
+                )()
+                
+                if user_config:
+                    logger.info(f"Found USER-SPECIFIC DEFAULT agent config: {user_config.name} (ID: {user_config.id})")
+                    config = await _convert_db_config_to_dict(user_config)
+                    agent = DigitalAssetsManagerAgent(custom_config=config)
+                    logger.info(f"✅ Created agent from USER-SPECIFIC DEFAULT database config: {user_config.name}")
+                    return agent
+                
+                # If no default, try to get any user-specific active agent
                 user_config = await sync_to_async(
                     AgentConfiguration.objects.filter(
                         created_by_id=user_id,
@@ -457,10 +474,10 @@ async def get_agent_instance_async(user_id=None) -> DigitalAssetsManagerAgent:
                 )()
                 
                 if user_config:
-                    logger.info(f"Found USER-SPECIFIC agent config: {user_config.name} (ID: {user_config.id})")
+                    logger.info(f"Found USER-SPECIFIC ACTIVE agent config: {user_config.name} (ID: {user_config.id})")
                     config = await _convert_db_config_to_dict(user_config)
                     agent = DigitalAssetsManagerAgent(custom_config=config)
-                    logger.info(f"✅ Created agent from USER-SPECIFIC database config: {user_config.name}")
+                    logger.info(f"✅ Created agent from USER-SPECIFIC ACTIVE database config: {user_config.name}")
                     return agent
                 else:
                     logger.info(f"No user-specific agent config found for user {user_id}")
@@ -541,16 +558,31 @@ def get_agent_instance_sync(user_id=None) -> DigitalAssetsManagerAgent:
             
             # Try to get user-specific active configuration first
             try:
+                # First try to get the user's default agent
+                user_config = AgentConfiguration.objects.filter(
+                    created_by_id=user_id,
+                    is_active=True,
+                    is_default=True
+                ).first()
+                
+                if user_config:
+                    logger.info(f"Found USER-SPECIFIC DEFAULT agent config (sync): {user_config.name} (ID: {user_config.id})")
+                    config = _convert_db_config_to_dict_sync(user_config)
+                    agent = DigitalAssetsManagerAgent(custom_config=config)
+                    logger.info(f"✅ Created agent from USER-SPECIFIC DEFAULT database config (sync): {user_config.name}")
+                    return agent
+                
+                # If no default, try to get any user-specific active agent
                 user_config = AgentConfiguration.objects.filter(
                     created_by_id=user_id,
                     is_active=True
                 ).first()
                 
                 if user_config:
-                    logger.info(f"Found USER-SPECIFIC agent config (sync): {user_config.name} (ID: {user_config.id})")
+                    logger.info(f"Found USER-SPECIFIC ACTIVE agent config (sync): {user_config.name} (ID: {user_config.id})")
                     config = _convert_db_config_to_dict_sync(user_config)
                     agent = DigitalAssetsManagerAgent(custom_config=config)
-                    logger.info(f"✅ Created agent from USER-SPECIFIC database config (sync): {user_config.name}")
+                    logger.info(f"✅ Created agent from USER-SPECIFIC ACTIVE database config (sync): {user_config.name}")
                     return agent
                 else:
                     logger.info(f"No user-specific agent config found for user {user_id} (sync)")

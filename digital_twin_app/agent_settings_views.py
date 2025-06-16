@@ -491,15 +491,15 @@ Focus on being helpful, accurate, and thorough in your analysis.''',
                 is_active=True
             )
             
-            # Update database: Set this agent as the user's default and deactivate others
+            # Update database: Set this agent as the user's default (but keep others active)
             with transaction.atomic():
-                # First, deactivate all other agents for this user
+                # First, remove default status from all other agents for this user  
                 AgentConfiguration.objects.filter(
                     created_by=request.user,
-                    is_active=True
-                ).exclude(id=agent_config.id).update(is_active=False)
+                    is_default=True
+                ).exclude(id=agent_config.id).update(is_default=False)
                 
-                # Ensure this agent is active and set as default
+                # Set this agent as the default (keep it active)
                 agent_config.is_active = True
                 agent_config.is_default = True
                 agent_config.save()
@@ -533,7 +533,7 @@ Focus on being helpful, accurate, and thorough in your analysis.''',
                 logger.warning("Could not import clear_agent_cache function")
             
             logger.info(f"Activated custom agent: {agent_config.name} (ID: {agent_config.id})")
-            logger.info(f"Database updated: Set agent {agent_config.id} as active and default for user {request.user.id}")
+            logger.info(f"Database updated: Set agent {agent_config.id} as default for user {request.user.id} (other agents remain active)")
         
         return Response({
             'status': 'success',

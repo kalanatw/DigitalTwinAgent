@@ -401,6 +401,35 @@ Always maintain a professional, knowledgeable, and client-focused tone.''',
                     'frequency_penalty': 0.0,
                     'presence_penalty': 0.0
                 },
+                'colpali_agent': {
+                    'type': 'system',
+                    'agent_id': 'colpali_agent',
+                    'name': 'ColPali Visual Agent',
+                    'instructions': '''You are a ColPali Visual Agent specialized in analyzing document images and extracting information from visual content.
+
+Your capabilities include:
+1. Visual document analysis using ColPali image embeddings
+2. Understanding tabular data, charts, and layouts in document images
+3. Retrieving relevant document pages based on visual similarity
+4. Generating responses based on visual content analysis using Gemini API
+
+You excel at:
+- Analyzing complex document layouts and structures
+- Understanding tables, charts, and visual elements in documents
+- Providing accurate responses based on visual document content
+- Handling multilingual documents with visual cues
+
+You use advanced visual retrieval to find the most relevant document images and then analyze them to provide comprehensive answers.''',
+                    'model': 'colpali',
+                    'temperature': 0.7,
+                    'max_turns': 20,
+                    'timeout': 60,  # Longer timeout for visual processing
+                    'system_context': 'Visual document analysis and retrieval system using ColPali embeddings',
+                    'tools_enabled': [],  # ColPali uses its own visual processing pipeline
+                    'top_p': 1.0,
+                    'frequency_penalty': 0.0,
+                    'presence_penalty': 0.0
+                },
                 'digital_twin_assistant': {
                     'type': 'system',
                     'agent_id': 'digital_twin_assistant',

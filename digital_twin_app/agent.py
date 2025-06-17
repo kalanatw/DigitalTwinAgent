@@ -31,7 +31,30 @@ class DigitalAssetsManagerAgent:
         """Initialize the Digital Assets Manager Agent with email tools and configuration."""
         self.agent = None
         self.custom_config = custom_config
-        self._initialize_agent()
+        self.is_colpali = False
+        self.colpali_agent = None
+        
+        # Check if this should be a ColPali agent
+        model = self.custom_config.get('model', 'gpt-4o-mini') if self.custom_config else 'gpt-4o-mini'
+        if model == 'colpali':
+            self._initialize_colpali_agent()
+        else:
+            self._initialize_agent()
+    
+    def _initialize_colpali_agent(self):
+        """Initialize ColPali agent with visual document retrieval capabilities."""
+        logger.info("Initializing ColPali agent for visual document retrieval")
+        
+        try:
+            from .colpali_agent import colpali_agent
+            self.colpali_agent = colpali_agent
+            self.is_colpali = True
+            logger.info("ColPali agent initialized successfully")
+        except ImportError as e:
+            logger.error(f"Failed to import ColPali agent: {e}")
+            logger.warning("Falling back to regular agent")
+            self.is_colpali = False
+            self._initialize_agent()
     
     def _initialize_agent(self):
         """Initialize the OpenAI agent with appropriate instructions and tools."""
@@ -47,6 +70,12 @@ class DigitalAssetsManagerAgent:
             model = self.custom_config.get('model', 'gpt-4o-mini')
             agent_name = self.custom_config.get('name', 'Digital Assets Manager')
             tools_enabled = self.custom_config.get('tools_enabled', [])
+            
+            # Check if this is a ColPali agent
+            if model == 'colpali':
+                logger.info("Detected ColPali model - initializing ColPali agent")
+                self._initialize_colpali_agent()
+                return
             
             # Create available tools map
             available_tools_map = {
@@ -126,11 +155,36 @@ Always maintain a professional, knowledgeable, and client-focused tone.
             logger.error(f"Failed to initialize Digital Assets Manager Agent: {e}")
             raise
     
+    def _initialize_colpali_agent(self):
+        """Initialize the ColPali agent for visual document retrieval."""
+        logger.info("Initializing ColPali Visual Agent")
+        
+        try:
+            from .colpali_agent import colpali_agent
+            self.colpali_agent = colpali_agent
+            self.is_colpali_agent = True
+            
+            # Store agent configuration
+            self.agent_name = self.custom_config.get('name', 'ColPali Visual Agent')
+            self.model_name = 'colpali'
+            
+            logger.info(f"ColPali agent initialized: {self.agent_name}")
+        except ImportError as e:
+            logger.error(f"Failed to import ColPali agent: {e}")
+            logger.warning("Falling back to regular agent")
+            self.is_colpali_agent = False
+            self._initialize_agent()
+        except Exception as e:
+            logger.error(f"Failed to initialize ColPali agent: {e}")
+            logger.warning("Falling back to regular agent")
+            self.is_colpali_agent = False
+            self._initialize_agent()
+    
     async def process_message(self, message: str, session_id: str) -> Dict[str, Any]:
         """
         Process a user message and return the agent's response.
         
-        Intelligently detects emails and uses appropriate templates for responses.
+        Routes to ColPali agent if configured, otherwise uses regular agent.
         
         Args:
             message: User's input message
@@ -141,7 +195,26 @@ Always maintain a professional, knowledgeable, and client-focused tone.
         """
         logger.info(f"Processing message for session {session_id}: {message[:100]}...")
         
+        # Route to ColPali agent if configured
+        if self.is_colpali and self.colpali_agent:
+            try:
+                logger.info("Routing message to ColPali agent")
+                result = await self.colpali_agent.process_query(message, twin_version_id=None)
+                return {
+                    "response": result.get("response", "No response generated"),
+                    "session_id": session_id,
+                    "status": "success" if result.get("success", True) else "error",
+                    "metadata": result.get("metadata", {}),
+                    "agent_type": "colpali",
+                    "agent_name": result.get("agent_name", "ColPali Agent")
+                }
+            except Exception as e:
+                logger.error(f"ColPali agent error: {e}")
+                # Fallback to regular processing
+                logger.info("Falling back to regular agent processing")
+        
         try:
+            # Regular agent processing
             # Enhance the message with email detection context
             enhanced_message = await self._enhance_message_for_email_detection(message)
             
@@ -204,7 +277,7 @@ Always maintain a professional, knowledgeable, and client-focused tone.
     async def process_message_with_documents(self, message: str, session_id: str, twin_version_id: str) -> Dict[str, Any]:
         """
         Process a user message with document context from a specific twin version.
-        Intelligently detects emails and uses appropriate templates for responses.
+        Routes to ColPali agent if configured, otherwise uses regular RAG.
         
         Args:
             message: User's input message
@@ -216,7 +289,26 @@ Always maintain a professional, knowledgeable, and client-focused tone.
         """
         logger.info(f"Processing message with documents for session {session_id}, twin version {twin_version_id}: {message[:100]}...")
         
+        # Route to ColPali agent if configured
+        if self.is_colpali and self.colpali_agent:
+            try:
+                logger.info("Routing message with documents to ColPali agent")
+                result = await self.colpali_agent.process_query(message, twin_version_id=twin_version_id)
+                return {
+                    "response": result.get("response", "No response generated"),
+                    "session_id": session_id,
+                    "status": "success" if result.get("success", True) else "error",
+                    "metadata": result.get("metadata", {}),
+                    "agent_type": "colpali",
+                    "agent_name": result.get("agent_name", "ColPali Agent")
+                }
+            except Exception as e:
+                logger.error(f"ColPali agent error with documents: {e}")
+                # Fallback to regular RAG processing
+                logger.info("Falling back to regular RAG processing")
+        
         try:
+            # Regular RAG processing
             # Get document context
             from .document_utils import SemanticSearch
             semantic_search = SemanticSearch()

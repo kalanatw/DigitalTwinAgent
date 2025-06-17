@@ -132,6 +132,12 @@ OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4-turbo-preview')  # Keep for back
 AGENT_MAX_TURNS = int(os.getenv('AGENT_MAX_TURNS', '20'))
 AGENT_TIMEOUT = int(os.getenv('AGENT_TIMEOUT', '30'))
 
+# Google Gemini API Configuration
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+
+# HuggingFace Configuration
+HUGGINGFACE_API_KEY = os.getenv('HUGGINGFACE_API_KEY')
+
 # Embedding Model Configuration
 EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'text-embedding-3-small')
 EMBEDDING_DIMENSIONS = 1536  # for text-embedding-3-small

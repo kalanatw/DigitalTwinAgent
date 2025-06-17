@@ -51,3 +51,15 @@ google-api-python-client>=2.100.0
 # Additional utilities
 httpx==0.27.0
 typing-extensions>=4.12.2
+
+# ColPali for image retrieval (using SQLite instead of Milvus)
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.30.0
+colpali-engine>=0.3.0
+pdf2image>=3.0.0
+fitz
+PyMuPDF>=1.23.0
+
+# Google Gemini API
+google-generativeai>=0.8.0

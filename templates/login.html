@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% block title %}Login | Digital Twin{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="ios-card">
+                <div class="ios-card-header">
+                    <h2>Welcome Back</h2>
+                    <p class="subtitle">Login to Digital Twin</p>
+                </div>
+                <div class="ios-card-body">
+                    <div id="loginAlert" class="ios-alert d-none" role="alert"></div>
+                    <form id="loginForm">
+                        <div class="ios-input-group">
+                            <input type="text" class="ios-input" id="username" name="username" required value="kalana" autocomplete="off">
+                            <label for="username" class="ios-label">Username</label>
+                            <small class="ios-hint">Default: kalana</small>
+                        </div>
+                        <div class="ios-input-group">
+                            <input type="password" class="ios-input" id="password" name="password" required value="kalana123">
+                            <label for="password" class="ios-label">Password</label>
+                            <small class="ios-hint">Default: kalana123</small>
+                            <button type="button" id="togglePassword" class="ios-password-toggle">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-eye" viewBox="0 0 16 16">
+                                    <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                                    <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <button type="submit" class="ios-button">Login</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* iOS 17 Inspired Styles */
+:root {
+    --ios-background: #f2f2f7;
+    --ios-card-bg: #ffffff;
+    --ios-text: #1c1c1e;
+    --ios-label: #8e8e93;
+    --ios-primary: #007aff;
+    --ios-error: #ff3b30;
+    --ios-success: #34c759;
+    --ios-border-radius: 12px;
+    --ios-shadow: rgba(0, 0, 0, 0.05) 0px 4px 24px;
+}
+
+body {
+    background-color: var(--ios-background);
+    color: var(--ios-text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.ios-card {
+    background-color: var(--ios-card-bg);
+    border-radius: var(--ios-border-radius);
+    box-shadow: var(--ios-shadow);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    margin-bottom: 20px;
+}
+
+.ios-card-header {
+    padding: 24px 24px 0;
+}
+
+.ios-card-header h2 {
+    font-weight: 600;
+    font-size: 28px;
+    margin-bottom: 4px;
+}
+
+.ios-card-header .subtitle {
+    color: var(--ios-label);
+    font-size: 16px;
+    margin-bottom: 20px;
+}
+
+.ios-card-body {
+    padding: 16px 24px 24px;
+}
+
+.ios-input-group {
+    position: relative;
+    margin-bottom: 24px;
+}
+
+.ios-input {
+    background-color: rgba(142, 142, 147, 0.12);
+    border: none;
+    border-radius: 10px;
+    color: var(--ios-text);
+    font-size: 17px;
+    height: 56px;
+    padding: 16px 16px 0;
+    width: 100%;
+    transition: all 0.2s ease;
+}
+
+.ios-input:focus {
+    outline: none;
+    background-color: rgba(142, 142, 147, 0.18);
+    box-shadow: 0 0 0 1px var(--ios-primary);
+}
+
+.ios-label {
+    color: var(--ios-label);
+    font-size: 13px;
+    left: 16px;
+    position: absolute;
+    top: 8px;
+    transition: all 0.2s ease;
+    pointer-events: none;
+}
+
+.ios-hint {
+    color: var(--ios-label);
+    display: block;
+    font-size: 12px;
+    margin-top: 5px;
+    margin-left: 2px;
+}
+
+.ios-button {
+    background-color: var(--ios-primary);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 600;
+    height: 50px;
+    padding: 0 20px;
+    transition: all 0.2s ease;
+    width: 100%;
+    margin-top: 10px;
+}
+
+.ios-button:hover {
+    background-color: #0071eb;
+    transform: translateY(-1px);
+}
+
+.ios-button:active {
+    background-color: #005ecb;
+    transform: translateY(1px);
+}
+
+.ios-alert {
+    background-color: rgba(255, 59, 48, 0.1);
+    border-left: 4px solid var(--ios-error);
+    border-radius: 8px;
+    color: var(--ios-error);
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-size: 15px;
+}
+
+.ios-password-toggle {
+    background: none;
+    border: none;
+    color: var(--ios-label);
+    cursor: pointer;
+    position: absolute;
+    right: 12px;
+    top: 18px;
+    transition: all 0.2s ease;
+}
+
+.ios-password-toggle:hover {
+    color: var(--ios-primary);
+}
+
+/* Animations and Effects */
+.ios-fade-in {
+    animation: fadeIn 0.6s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.ios-shake {
+    animation: shake 0.6s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes shake {
+    10%, 90% { transform: translate3d(-1px, 0, 0); }
+    20%, 80% { transform: translate3d(2px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+    40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+.ios-button-loading {
+    background-color: var(--ios-background);
+    color: var(--ios-label);
+    position: relative;
+}
+
+.ios-button-success {
+    background-color: var(--ios-success);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.ios-button-success svg {
+    margin-right: -4px;
+}
+
+/* Focus and hover states for better accessibility */
+.ios-input-group:focus-within .ios-label {
+    color: var(--ios-primary);
+}
+
+.ios-input:hover {
+    background-color: rgba(142, 142, 147, 0.15);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --ios-background: #1c1c1e;
+        --ios-card-bg: #2c2c2e;
+        --ios-text: #ffffff;
+        --ios-label: #8e8e93;
+        --ios-shadow: rgba(0, 0, 0, 0.2) 0px 4px 24px;
+    }
+
+    .ios-input {
+        background-color: rgba(142, 142, 147, 0.18);
+    }
+
+    .ios-input:focus {
+        background-color: rgba(142, 142, 147, 0.24);
+    }
+    
+    .ios-button-loading {
+        background-color: rgba(142, 142, 147, 0.24);
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add animation effects on page load
+    document.querySelector('.ios-card').classList.add('ios-fade-in');
+    
+    // Check if user is already logged in
+    fetch('/api/auth/user/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.isAuthenticated) {
+                window.location.href = '/';
+            }
+        });
+
+    // Handle password visibility toggle
+    const togglePasswordBtn = document.getElementById('togglePassword');
+    const passwordInput = document.getElementById('password');
+    
+    togglePasswordBtn.addEventListener('click', function() {
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+        
+        // Toggle icon between eye and eye-slash
+        if (type === 'text') {
+            this.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-eye-slash" viewBox="0 0 16 16">
+                    <path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7.028 7.028 0 0 0-2.79.588l.77.771A5.944 5.944 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.134 13.134 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755-.165.165-.337.328-.517.486l.708.709z"/>
+                    <path d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829l.822.822zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829z"/>
+                    <path d="M3.35 5.47c-.18.16-.353.322-.518.487A13.134 13.134 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7.029 7.029 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12-.708.708z"/>
+                </svg>
+            `;
+        } else {
+            this.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-eye" viewBox="0 0 16 16">
+                    <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                    <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
+                </svg>
+            `;
+        }
+    });
+
+    // Handle login form submission with haptic feedback animation
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const loginAlert = document.getElementById('loginAlert');
+        const loginButton = document.querySelector('.ios-button');
+        
+        // Add loading effect to button
+        loginButton.classList.add('ios-button-loading');
+        loginButton.textContent = 'Logging in...';
+        
+        // Hide any previous error
+        loginAlert.classList.add('d-none');
+        
+        // Get CSRF token first
+        fetch('/api/auth/csrf-token/')
+            .then(response => response.json())
+            .then(data => {
+                // Perform login
+                fetch('/api/auth/login/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': data.csrfToken
+                    },
+                    body: JSON.stringify({ username, password })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Success animation
+                        loginButton.classList.remove('ios-button-loading');
+                        loginButton.classList.add('ios-button-success');
+                        loginButton.innerHTML = `
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-check-lg" viewBox="0 0 16 16">
+                                <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z"/>
+                            </svg> Success!
+                        `;
+                        
+                        // Redirect after animation
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 800);
+                    } else {
+                        // Error animation
+                        loginButton.classList.remove('ios-button-loading');
+                        loginButton.textContent = 'Login';
+                        loginAlert.textContent = data.message;
+                        loginAlert.classList.remove('d-none');
+                        
+                        // Shake form to indicate error
+                        const form = document.getElementById('loginForm');
+                        form.classList.add('ios-shake');
+                        setTimeout(() => {
+                            form.classList.remove('ios-shake');
+                        }, 600);
+                    }
+                })
+                .catch(error => {
+                    loginButton.classList.remove('ios-button-loading');
+                    loginButton.textContent = 'Login';
+                    loginAlert.textContent = "Connection error. Please try again.";
+                    loginAlert.classList.remove('d-none');
+                });
+            });
+    });
+});
+</script>
+{% endblock %}

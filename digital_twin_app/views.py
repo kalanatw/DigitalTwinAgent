@@ -7,12 +7,14 @@ import asyncio
 import threading
 import concurrent.futures
 from typing import Dict, Any
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.utils.decorators import method_decorator
 from django.views import View
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
 from asgiref.sync import sync_to_async
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -127,6 +129,7 @@ class ChatResponse(BaseModel):
 
 
 # Django Views
+@method_decorator(login_required(login_url='/login/'), name='dispatch')
 class ChatView(View):
     """Django view for handling chat interface."""
     

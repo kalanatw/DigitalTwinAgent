@@ -531,13 +531,37 @@ function agentSettingsApp() {
         },
 
         async init() {
-            await this.loadAgents();
-            await this.loadSystemAgents();
-            await this.loadActiveSessions();
-            await this.loadAgentTemplates();
-            await this.loadAvailableTools();
-            await this.loadCurrentAgent();
-            this.filterAgents();
+            try {
+                // Get CSRF token first
+                await this.refreshCsrfToken();
+                
+                // Check authentication status
+                const authResponse = await fetch('/api/auth/user/');
+                const authData = await authResponse.json();
+                
+                if (!authData.isAuthenticated) {
+                    // Redirect to login if not authenticated
+                    window.location.href = '/login/';
+                    return;
+                }
+                
+                // Load all settings data
+                await Promise.all([
+                    this.loadAgents(),
+                    this.loadSystemAgents(),
+                    this.loadAgentTemplates(),
+                    this.loadAvailableTools()
+                ]);
+                
+                // These might depend on the first batch of data
+                await this.loadActiveSessions();
+                await this.loadCurrentAgent();
+                
+                this.filterAgents();
+            } catch (error) {
+                console.error('Error initializing settings:', error);
+                this.showNotification('Error loading settings. Please try again.', 'error');
+            }
         },
 
         async loadAgents() {
@@ -774,10 +798,14 @@ function agentSettingsApp() {
 
         async activateAgent(agent) {
             try {
+                // First get a fresh CSRF token to avoid any authentication issues
+                await this.refreshCsrfToken();
+                
                 const response = await fetch(`/api/agents/${agent.id}/activate/`, {
                     method: 'POST',
                     headers: {
-                        'X-CSRFToken': this.getCsrfToken()
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.csrfToken
                     }
                 });
                 
@@ -785,11 +813,29 @@ function agentSettingsApp() {
                     this.currentAgent = agent;
                     this.showNotification(`Activated "${agent.name}"`, 'success');
                 } else {
-                    throw new Error('Failed to activate agent');
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `Failed to activate agent: ${response.status}`);
                 }
             } catch (error) {
                 console.error('Error activating agent:', error);
-                this.showNotification('Failed to activate agent', 'error');
+                this.showNotification(`Failed to activate agent: ${error.message}`, 'error');
+                
+                // If there's an authentication issue, redirect to login
+                if (error.message && error.message.includes('authentication') || 
+                    error.message.includes('403') || 
+                    error.message.includes('401')) {
+                    window.location.href = '/login/';
+                }
+            }
+        },
+        
+        async refreshCsrfToken() {
+            try {
+                const response = await fetch('/api/auth/csrf-token/');
+                const data = await response.json();
+                this.csrfToken = data.csrfToken;
+            } catch (error) {
+                console.error('Error fetching CSRF token:', error);
             }
         },
 
@@ -951,7 +997,12 @@ function agentSettingsApp() {
             }, 5000);
         },
 
+        csrfToken: '',
+        
         getCsrfToken() {
+            if (this.csrfToken) {
+                return this.csrfToken;
+            }
             return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
         }
     }

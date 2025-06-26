@@ -538,6 +538,43 @@
                         <span class="hidden xl:inline">About</span>
                     </a>
                     
+                    <!-- User Authentication Status -->
+                    <div id="user-auth-status" class="relative" x-data="{ open: false, isAuthenticated: false, username: '' }">
+                        <button @click="open = !open" 
+                                class="text-white/80 hover:text-white px-2 xl:px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/10 flex items-center border border-transparent hover:border-white/20">
+                            <i class="fas fa-user mr-1 xl:mr-2"></i>
+                            <span x-text="isAuthenticated ? username : 'Guest'" class="hidden xl:inline"></span>
+                            <i class="fas fa-chevron-down ml-1 xl:ml-2 text-xs transition-transform duration-200" :class="{ 'rotate-180': open }"></i>
+                        </button>
+                        
+                        <!-- Auth Dropdown -->
+                        <div x-show="open" @click.away="open = false" 
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 scale-95"
+                             x-transition:enter-end="opacity-1 scale-100"
+                             x-transition:leave="transition ease-in duration-150"
+                             x-transition:leave-start="opacity-1 scale-100"
+                             x-transition:leave-end="opacity-0 scale-95"
+                             class="absolute right-0 mt-2 w-48 rounded-xl shadow-lg glass border border-white/20 z-50">
+                            <div class="px-4 py-3 border-b border-white/20">
+                                <p class="text-sm text-white" x-text="isAuthenticated ? 'Logged in as:' : 'Not logged in'"></p>
+                                <p class="text-sm font-medium text-white truncate" x-text="isAuthenticated ? username : ''"></p>
+                            </div>
+                            <div class="py-1">
+                                <template x-if="isAuthenticated">
+                                    <a href="#" @click.prevent="logout()" class="block px-4 py-2 text-sm text-white hover:bg-white/10">
+                                        <i class="fas fa-sign-out-alt mr-2"></i> Log out
+                                    </a>
+                                </template>
+                                <template x-if="!isAuthenticated">
+                                    <a href="/login/" class="block px-4 py-2 text-sm text-white hover:bg-white/10">
+                                        <i class="fas fa-sign-in-alt mr-2"></i> Log in
+                                    </a>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- Twin Version Selector in Desktop Navbar -->
                     <div id="navbar-twin-selector" class="relative hidden" x-data="{ open: false }">
                         <button @click="open = !open" 
@@ -618,19 +655,32 @@
                     </a>
                     <a href="/dms/" 
                        @click="mobileMenuOpen = false"
-                       class="text-white/80 hover:text-white block px-3 py-3 rounded-xl text-base font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
+                       class="text-white/80 hover:text-white block px-3 py-3 rounded-xl textbase font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
                         <i class="fas fa-folder-open mr-3 w-5"></i>Document Management
                     </a>
                     <a href="/settings/" 
                        @click="mobileMenuOpen = false"
-                       class="text-white/80 hover:text-white block px-3 py-3 rounded-xl text-base font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
+                       class="text-white/80 hover:text-white block px-3 py-3 rounded-xl textbase font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
                         <i class="fas fa-cog mr-3 w-5"></i>Settings
                     </a>
                     <a href="/about/" 
                        @click="mobileMenuOpen = false"
-                       class="text-white/80 hover:text-white block px-3 py-3 rounded-xl text-base font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
+                       class="text-white/80 hover:text-white block px-3 py-3 rounded-xl textbase font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
                         <i class="fas fa-info-circle mr-3 w-5"></i>About
                     </a>
+                    <!-- Mobile Auth Links -->
+                    <div id="mobile-auth-links">
+                        <a href="/login/" 
+                            @click="mobileMenuOpen = false"
+                            class="auth-login-link text-white/80 hover:text-white block px-3 py-3 rounded-xl textbase font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
+                            <i class="fas fa-sign-in-alt mr-3 w-5"></i>Login
+                        </a>
+                        <a href="#" 
+                            @click="logout(); mobileMenuOpen = false"
+                            class="auth-logout-link hidden text-white/80 hover:text-white block px-3 py-3 rounded-xl textbase font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
+                            <i class="fas fa-sign-out-alt mr-3 w-5"></i>Logout (<span class="username-display">User</span>)
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -691,5 +741,91 @@
             </div>
         </div>
     </footer>
+
+    <!-- Authentication script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check authentication status on page load
+            checkAuthStatus();
+            
+            // Initialize Alpine.js data for user auth status
+            if (typeof Alpine !== 'undefined') {
+                const authStatus = document.getElementById('user-auth-status')?.__x;
+                if (authStatus) {
+                    authStatus.$data.logout = logout;
+                }
+            }
+        });
+        
+        // Function to check authentication status
+        function checkAuthStatus() {
+            fetch('/api/auth/user/')
+                .then(response => response.json())
+                .then(data => {
+                    updateAuthUI(data.isAuthenticated, data.username);
+                })
+                .catch(error => {
+                    console.error('Error checking auth status:', error);
+                    updateAuthUI(false, '');
+                });
+        }
+        
+        // Update UI based on authentication status
+        function updateAuthUI(isAuthenticated, username) {
+            // Update Alpine.js data
+            const authStatus = document.getElementById('user-auth-status')?.__x;
+            if (authStatus) {
+                authStatus.$data.isAuthenticated = isAuthenticated;
+                authStatus.$data.username = username || 'Guest';
+            }
+            
+            // Update mobile menu elements
+            const loginLink = document.querySelector('.auth-login-link');
+            const logoutLink = document.querySelector('.auth-logout-link');
+            const usernameDisplay = document.querySelector('.username-display');
+            
+            if (loginLink && logoutLink) {
+                if (isAuthenticated) {
+                    loginLink.classList.add('hidden');
+                    logoutLink.classList.remove('hidden');
+                    if (usernameDisplay) {
+                        usernameDisplay.textContent = username;
+                    }
+                } else {
+                    loginLink.classList.remove('hidden');
+                    logoutLink.classList.add('hidden');
+                }
+            }
+        }
+        
+        // Function to handle logout
+        function logout() {
+            // Get CSRF token first
+            fetch('/api/auth/csrf-token/')
+                .then(response => response.json())
+                .then(data => {
+                    // Send logout request
+                    return fetch('/api/auth/logout/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': data.csrfToken
+                        }
+                    });
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update UI to reflect logged out state
+                        updateAuthUI(false, '');
+                        // Redirect to home page
+                        window.location.href = '/';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error during logout:', error);
+                });
+        }
+    </script>
 </body>
 </html>

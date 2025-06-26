@@ -13,6 +13,17 @@ urlpatterns = [
     path('api/chat/', views.ApiChatView.as_view(), name='api_chat'),
     path('api/drf-chat/', views.drf_chat_view, name='drf_chat'),
     
+    # Authentication endpoints
+    path('api/auth/login/', agent_settings_views.login_view, name='login'),
+    path('api/auth/logout/', agent_settings_views.logout_view, name='logout'),
+    path('api/auth/user/', agent_settings_views.user_info, name='user_info'),
+    path('api/auth/csrf-token/', agent_settings_views.get_csrf_token, name='csrf_token'),
+    
+    # Chat History endpoints
+    path('api/chat/history/<str:session_id>/', agent_settings_views.get_chat_history, name='get_chat_history'),
+    path('api/chat/message/<str:session_id>/', agent_settings_views.save_chat_message, name='save_chat_message'),
+    path('api/chat/clear/<str:session_id>/', agent_settings_views.clear_chat_history, name='clear_chat_history'),
+    
     # Email Integration endpoints
     path('api/email/oauth/', integrated_email_views.get_oauth_url, name='email_oauth'),
     path('api/email/oauth/url/', integrated_email_views.get_oauth_url, name='email_oauth_url'),
@@ -67,6 +78,7 @@ urlpatterns = [
     # Main pages (less specific patterns)
     path('', views.ChatView.as_view(), name='chat_home'),
     path('chat/', views.ChatView.as_view(), name='chat_interface'),
+    path('login/', TemplateView.as_view(template_name='login.html'), name='login'),
     path('email/', integrated_email_views.email_automation_page, name='email_automation'),
     path('settings/', agent_settings_views.SettingsView.as_view(), name='settings'),
     

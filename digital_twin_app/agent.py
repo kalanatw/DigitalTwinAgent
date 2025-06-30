@@ -39,7 +39,7 @@ class DigitalAssetsManagerAgent:
         
         # Import all available tools at the beginning
         from .email_tools import email_template_selector, list_email_templates, analyze_email_content
-        from .tools import sensor_data_tool, system_status_tool
+        from .tools import sensor_data_tool, system_status_tool, query_csv_data
         
         # Use custom config if provided, otherwise use defaults
         if self.custom_config:
@@ -55,6 +55,7 @@ class DigitalAssetsManagerAgent:
                 'analyze_email_content': analyze_email_content,
                 'sensor_data_tool': sensor_data_tool,
                 'system_status_tool': system_status_tool,
+                'query_csv_data': query_csv_data,
             }
             
             # Build tools list for this agent
@@ -68,8 +69,8 @@ class DigitalAssetsManagerAgent:
             if not agent_tools:
                 if 'digital twin' in agent_name.lower() or 'twin' in agent_name.lower():
                     # Default tools for digital twin agents
-                    agent_tools = [sensor_data_tool, system_status_tool]
-                    logger.info("Using default digital twin tools: sensor_data_tool, system_status_tool")
+                    agent_tools = [sensor_data_tool, system_status_tool, query_csv_data]
+                    logger.info("Using default digital twin tools: sensor_data_tool, system_status_tool, query_csv_data")
                 else:
                     # Default tools for other agents
                     agent_tools = [email_template_selector, list_email_templates, analyze_email_content]

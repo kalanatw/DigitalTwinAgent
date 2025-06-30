@@ -773,7 +773,18 @@ function chatApp() {
         // Show document context information
         showDocumentContext(documentContext) {
             if (documentContext && documentContext.length > 0) {
-                const contextInfo = `📄 Reference: Found relevant information in ${documentContext.length} document(s): ${documentContext.map(doc => doc.title).join(', ')}`;
+                // Get unique document titles with their counts
+                const docCounts = {};
+                documentContext.forEach(doc => {
+                    docCounts[doc.title] = (docCounts[doc.title] || 0) + 1;
+                });
+                
+                // Format document references
+                const docReferences = Object.entries(docCounts).map(([title, count]) => {
+                    return count > 1 ? `${title} (${count} references)` : title;
+                }).join(', ');
+                
+                const contextInfo = `📄 Reference: Found relevant information in ${documentContext.length} document(s): ${docReferences}`;
                 this.addMessage('assistant', contextInfo, ['document_search']);
             }
         },

@@ -4,8 +4,10 @@ Tools for the Digital Twin Agent
 import random
 import logging
 import json
+import pandas as pd
+import numpy as np
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from agents import function_tool
 
 logger = logging.getLogger(__name__)
@@ -187,6 +189,208 @@ def system_status_tool(system_component: str = "all") -> str:
         return json.dumps(error_response, indent=2)
     
     return json.dumps(response_data, indent=2)
+
+
+@function_tool
+def query_csv_data(query: str, document_id: str = None) -> str:
+    """
+    Query CSV data using natural language.
+    
+    This tool allows you to ask questions about CSV files that have been uploaded to the system.
+    The agent will interpret your query, extract relevant information from the CSV data,
+    and provide a response that might include summary statistics, charts, or specific data points.
+    
+    Args:
+        query: Natural language query about the CSV data (e.g. "What's the average temperature?",
+              "Show me sales trends over time", "Which product had the highest revenue?")
+        document_id: Optional ID of a specific CSV document to query. If not provided,
+                    the query will be run against all available CSV documents.
+                    
+    Returns:
+        Response to the query, which may include data summaries, charts, or specific answers
+    """
+    from .models import CSVDocument, CSVDataset, CSVColumn
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    import io
+    import base64
+    from django.conf import settings
+    import os
+    
+    logger.info(f"CSV Query Tool called - query: {query}, document_id: {document_id}")
+    
+    try:
+        # If document_id is provided, load that specific document
+        if document_id:
+            try:
+                document = CSVDocument.objects.get(id=document_id)
+                return _process_csv_query(query, document)
+            except CSVDocument.DoesNotExist:
+                return json.dumps({
+                    "error": f"CSV document with ID {document_id} not found"
+                })
+        
+        # Otherwise, find the most relevant document(s) for the query
+        # For now, just get the most recent document
+        documents = CSVDocument.objects.filter(status='completed').order_by('-uploaded_at')
+        
+        if not documents:
+            return json.dumps({
+                "error": "No CSV documents available. Please upload a CSV file first."
+            })
+        
+        # Use the most recent document
+        document = documents.first()
+        return _process_csv_query(query, document)
+    
+    except Exception as e:
+        logger.error(f"Error in CSV query tool: {str(e)}")
+        return json.dumps({
+            "error": f"Error processing CSV query: {str(e)}"
+        })
+
+
+def _process_csv_query(query: str, document: 'CSVDocument') -> str:
+    """
+    Process a natural language query against a CSV document.
+    
+    Args:
+        query: The natural language query
+        document: The CSVDocument object to query against
+        
+    Returns:
+        JSON string with the query results
+    """
+    try:
+        from django.core.files.storage import default_storage
+        import pandas as pd
+        import matplotlib.pyplot as plt
+        import io
+        import base64
+        from django.conf import settings
+        import os
+        
+        # Load the dataset and schema information
+        dataset = document.dataset
+        columns = dataset.columns.all()
+        
+        # Get the file path
+        file_path = document.file_path
+        
+        # If the file is stored with Django's storage system, get the actual path
+        if default_storage.exists(file_path):
+            file_path = default_storage.path(file_path)
+        
+        # Load the CSV file
+        # First try pandas auto-detection
+        try:
+            df = pd.read_csv(file_path)
+        except:
+            # Try different encodings and separators if that fails
+            encodings = ['utf-8', 'latin1', 'iso-8859-1', 'cp1252']
+            separators = [',', ';', '\t', '|']
+            
+            for encoding in encodings:
+                for sep in separators:
+                    try:
+                        df = pd.read_csv(file_path, encoding=encoding, sep=sep)
+                        break
+                    except:
+                        continue
+        
+        # Process different types of queries
+        response = {}
+        
+        # Add metadata about the document
+        response["document"] = {
+            "title": document.title,
+            "rows": document.row_count,
+            "columns": document.column_count,
+            "uploaded_at": document.uploaded_at.isoformat() if document.uploaded_at else None
+        }
+        
+        # Basic statistics query
+        if any(keyword in query.lower() for keyword in ['statistics', 'stats', 'summary', 'describe']):
+            # Get numerical columns
+            num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            if num_cols:
+                # Calculate statistics
+                stats = df[num_cols].describe().to_dict()
+                response["statistics"] = stats
+                response["message"] = f"Here are the statistics for numerical columns in {document.title}"
+            else:
+                response["message"] = f"No numerical columns found in {document.title}"
+        
+        # Time series query
+        elif any(keyword in query.lower() for keyword in ['time', 'trend', 'over time', 'series']):
+            # Check if there are time series defined for this document
+            time_series = document.time_series.all()
+            
+            if time_series.exists():
+                ts_data = []
+                for ts in time_series[:3]:  # Limit to 3 time series
+                    # Get sample points
+                    points = ts.points.order_by('timestamp')[:100]  # Limit to 100 points
+                    
+                    ts_info = {
+                        "name": ts.title,
+                        "unit": ts.unit,
+                        "points": [
+                            {"timestamp": p.timestamp.isoformat(), "value": p.value} 
+                            for p in points
+                        ]
+                    }
+                    ts_data.append(ts_info)
+                
+                response["time_series"] = ts_data
+                response["message"] = f"Found {time_series.count()} time series in {document.title}"
+            else:
+                # Try to identify date columns
+                date_cols = []
+                for col in df.columns:
+                    try:
+                        pd.to_datetime(df[col])
+                        date_cols.append(col)
+                    except:
+                        continue
+                
+                if date_cols:
+                    response["potential_time_columns"] = date_cols
+                    response["message"] = f"No time series defined yet, but found potential date columns: {', '.join(date_cols)}"
+                else:
+                    response["message"] = "No time series or date columns found in this document"
+        
+        # Column info query
+        elif any(keyword in query.lower() for keyword in ['columns', 'fields', 'attributes']):
+            cols_info = []
+            for col in columns:
+                col_info = {
+                    "name": col.name,
+                    "type": col.data_type,
+                    "description": col.description,
+                    "is_numerical": col.is_numerical,
+                    "is_categorical": col.is_categorical,
+                    "is_time_column": col.is_time_column
+                }
+                cols_info.append(col_info)
+            
+            response["columns"] = cols_info
+            response["message"] = f"This document has {len(cols_info)} columns"
+        
+        # Default: sample data
+        else:
+            # Get a sample of the data (first 10 rows)
+            sample_data = df.head(10).to_dict(orient='records')
+            response["sample_data"] = sample_data
+            response["message"] = f"Here's a sample of data from {document.title}"
+        
+        return json.dumps(response)
+    
+    except Exception as e:
+        logger.error(f"Error processing CSV query: {str(e)}")
+        return json.dumps({
+            "error": f"Error processing query: {str(e)}"
+        })
 
 
 # Helper functions for direct API calls (without tool wrapper)

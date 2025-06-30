@@ -70,6 +70,7 @@ class Document(models.Model):
         ('docx', 'Word Document'),
         ('txt', 'Text File'),
         ('md', 'Markdown'),
+        ('csv', 'CSV File'),
         ('other', 'Other'),
     ]
     
@@ -140,6 +141,7 @@ class DocumentEmbedding(models.Model):
     chunk = models.OneToOneField(DocumentChunk, on_delete=models.CASCADE, related_name='embedding')
     embedding = models.JSONField()  # Store as JSON array
     embedding_model = models.CharField(max_length=100, default='text-embedding-3-small')
+    embedding_type = models.CharField(max_length=50, default='document')  # Type of embedding (e.g., document, query)
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
@@ -326,3 +328,113 @@ class AgentSession(models.Model):
         
     def __str__(self):
         return f"Session {self.session_id} - {self.agent_config.name}"
+
+
+class CSVDocument(models.Model):
+    """Model for storing CSV document metadata"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    twin_version = models.ForeignKey(TwinVersion, on_delete=models.CASCADE, related_name='csv_documents')
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    file_path = models.CharField(max_length=512)
+    file = models.FileField(upload_to='csv_documents/', null=True, blank=True)
+    file_size = models.IntegerField(default=0)
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    row_count = models.IntegerField(default=0)
+    column_count = models.IntegerField(default=0)
+    schema_summary = models.TextField(null=True, blank=True)  # JSON text field
+    status = models.CharField(max_length=20, default='processing',
+                             choices=[('processing', 'Processing'), 
+                                     ('completed', 'Completed'), 
+                                     ('failed', 'Failed')])
+    processing_error = models.TextField(blank=True)
+    is_enabled = models.BooleanField(default=True)
+    
+    def __str__(self):
+        return self.title
+
+
+class CSVDataset(models.Model):
+    """Model for storing actual data and statistics about a CSV file"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    document = models.OneToOneField(CSVDocument, on_delete=models.CASCADE, related_name='dataset')
+    data_sample = models.TextField(null=True, blank=True)  # JSON text field with sample rows
+    total_rows = models.IntegerField(default=0)
+    statistical_summary = models.TextField(null=True, blank=True)  # JSON text field
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Dataset for {self.document.title}"
+
+
+class CSVColumn(models.Model):
+    """Model for storing column information from CSV files"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    dataset = models.ForeignKey(CSVDataset, on_delete=models.CASCADE, related_name='columns')
+    name = models.CharField(max_length=255)
+    data_type = models.CharField(max_length=50)
+    description = models.TextField(null=True, blank=True)
+    statistics = models.TextField(null=True, blank=True)  # JSON text field
+    is_time_column = models.BooleanField(default=False)
+    is_categorical = models.BooleanField(default=False)
+    is_numerical = models.BooleanField(default=False)
+    is_primary_key = models.BooleanField(default=False)
+    sample_values = models.TextField(null=True, blank=True)  # JSON text field
+    
+    def __str__(self):
+        return f"{self.name} ({self.data_type})"
+
+
+class TimeSeriesData(models.Model):
+    """Model for storing time series data sources and metadata"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    
+    # Source
+    document = models.ForeignKey('Document', on_delete=models.CASCADE, related_name='time_series', null=True, blank=True)
+    csv_document = models.ForeignKey('CSVDocument', on_delete=models.CASCADE, related_name='time_series', null=True, blank=True)
+    data_type = models.CharField(max_length=50, choices=[('manual', 'Manual Entry'), 
+                                                        ('sensor', 'Sensor Data'),
+                                                        ('csv', 'CSV Data'),
+                                                        ('api', 'External API')])
+    source_text = models.CharField(max_length=255, blank=True)
+    
+    # Properties
+    unit = models.CharField(max_length=50, blank=True)
+    start_date = models.DateTimeField(null=True, blank=True)
+    end_date = models.DateTimeField(null=True, blank=True)
+    total_points = models.IntegerField(default=0)
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_enabled = models.BooleanField(default=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Time Series"
+        verbose_name_plural = "Time Series Data"
+    
+    def __str__(self):
+        return self.title
+
+
+class TimeSeriesPoint(models.Model):
+    """Model for storing individual time series data points"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    time_series = models.ForeignKey(TimeSeriesData, on_delete=models.CASCADE, related_name='points')
+    timestamp = models.DateTimeField()
+    value = models.FloatField()
+    notes = models.TextField(blank=True)
+    
+    class Meta:
+        ordering = ['timestamp']
+        indexes = [
+            models.Index(fields=['time_series', 'timestamp']),
+        ]
+    
+    def __str__(self):
+        return f"{self.time_series.title} @ {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}: {self.value}"

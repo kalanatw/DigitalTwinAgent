@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Upload & Query</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .container {
+            max-width: 800px;
+            margin-top: 40px;
+        }
+        .card {
+            margin-bottom: 20px;
+        }
+        pre {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            white-space: pre-wrap;
+        }
+        .spinner-border {
+            display: none;
+        }
+        .csv-info {
+            display: none;
+            margin-top: 20px;
+        }
+        .time-series-chart {
+            width: 100%;
+            height: 300px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">CSV Data Intelligence</h1>
+        
+        <div class="card">
+            <div class="card-header">Upload CSV File</div>
+            <div class="card-body">
+                <form id="csvUploadForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="csvFile" class="form-label">Select CSV File</label>
+                        <input type="file" class="form-control" id="csvFile" accept=".csv" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <span class="spinner-border spinner-border-sm" id="uploadSpinner"></span>
+                        Upload & Analyze
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="csv-info" id="csvInfo">
+            <div class="card">
+                <div class="card-header">CSV Document Info</div>
+                <div class="card-body">
+                    <h5 id="csvTitle"></h5>
+                    <p><strong>Rows:</strong> <span id="csvRows"></span></p>
+                    <p><strong>Columns:</strong> <span id="csvColumns"></span></p>
+                    <p><strong>Processed at:</strong> <span id="csvProcessedAt"></span></p>
+                    
+                    <h6 class="mt-3">Schema:</h6>
+                    <div id="csvSchema"></div>
+                    
+                    <div id="timeSeriesSection">
+                        <h6 class="mt-3">Time Series:</h6>
+                        <div id="timeSeriesList"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">Query CSV Data</div>
+                <div class="card-body">
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" id="queryInput" placeholder="Ask a question about your CSV data...">
+                        <button class="btn btn-primary" type="button" id="queryButton">
+                            <span class="spinner-border spinner-border-sm" id="querySpinner"></span>
+                            Query
+                        </button>
+                    </div>
+                    <div id="queryResults" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Global variable for current document ID
+        let currentDocumentId = null;
+        
+        document.getElementById('csvUploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('csvFile');
+            if (!fileInput.files.length) {
+                alert('Please select a CSV file');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            // Show spinner
+            const spinner = document.getElementById('uploadSpinner');
+            spinner.style.display = 'inline-block';
+            
+            try {
+                const response = await fetch('/api/csv/upload/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCsrfToken()
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Store document ID for later queries
+                    currentDocumentId = data.id;
+                    
+                    // Display document info
+                    document.getElementById('csvInfo').style.display = 'block';
+                    document.getElementById('csvTitle').textContent = data.title;
+                    document.getElementById('csvRows').textContent = data.row_count;
+                    document.getElementById('csvColumns').textContent = data.column_count;
+                    document.getElementById('csvProcessedAt').textContent = new Date(data.processed_at).toLocaleString();
+                    
+                    // Display schema info
+                    if (data.schema_overview) {
+                        const schemaHtml = `
+                            <p><strong>Primary Key:</strong> ${data.schema_overview.primary_key || 'None detected'}</p>
+                            <p><strong>Sample Columns:</strong> ${data.schema_overview.column_names.join(', ')}</p>
+                        `;
+                        document.getElementById('csvSchema').innerHTML = schemaHtml;
+                    }
+                    
+                    // Display time series info if available
+                    if (data.time_series && data.time_series.length > 0) {
+                        let tsHtml = '<ul class="list-group">';
+                        data.time_series.forEach(ts => {
+                            tsHtml += `<li class="list-group-item">
+                                <strong>${ts.name}</strong>: ${ts.description}
+                                <br>Time column: ${ts.time_column}, Value column: ${ts.value_column}
+                            </li>`;
+                        });
+                        tsHtml += '</ul>';
+                        document.getElementById('timeSeriesList').innerHTML = tsHtml;
+                        document.getElementById('timeSeriesSection').style.display = 'block';
+                    } else {
+                        document.getElementById('timeSeriesSection').style.display = 'none';
+                    }
+                } else {
+                    alert('Error uploading CSV: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error uploading CSV file');
+            } finally {
+                // Hide spinner
+                spinner.style.display = 'none';
+            }
+        });
+        
+        document.getElementById('queryButton').addEventListener('click', async function() {
+            if (!currentDocumentId) {
+                alert('Please upload a CSV file first');
+                return;
+            }
+            
+            const query = document.getElementById('queryInput').value.trim();
+            if (!query) {
+                alert('Please enter a query');
+                return;
+            }
+            
+            // Show spinner
+            const spinner = document.getElementById('querySpinner');
+            spinner.style.display = 'inline-block';
+            
+            try {
+                const response = await fetch(`/api/csv/documents/${currentDocumentId}/query/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCsrfToken()
+                    },
+                    body: JSON.stringify({
+                        query: query
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // Display query results
+                let resultsHtml = '';
+                
+                if (data.error) {
+                    resultsHtml = `<div class="alert alert-danger">${data.error}</div>`;
+                } else {
+                    resultsHtml = `<div class="alert alert-info">${data.message}</div>`;
+                    
+                    // Display statistics if available
+                    if (data.statistics) {
+                        resultsHtml += '<h6>Statistics:</h6><pre>' + JSON.stringify(data.statistics, null, 2) + '</pre>';
+                    }
+                    
+                    // Display sample data if available
+                    if (data.sample_data) {
+                        resultsHtml += '<h6>Sample Data:</h6><pre>' + JSON.stringify(data.sample_data, null, 2) + '</pre>';
+                    }
+                    
+                    // Display time series data and chart if available
+                    if (data.time_series && data.time_series.length > 0) {
+                        resultsHtml += '<h6>Time Series Data:</h6>';
+                        
+                        // Create a container for the chart
+                        resultsHtml += `<div class="time-series-chart-container">
+                            <canvas id="timeSeriesChart"></canvas>
+                        </div>`;
+                    }
+                }
+                
+                document.getElementById('queryResults').innerHTML = resultsHtml;
+                
+                // Initialize chart if time series data is available
+                if (data.time_series && data.time_series.length > 0) {
+                    const ts = data.time_series[0]; // Use the first time series
+                    const labels = ts.points.map(p => new Date(p.timestamp).toLocaleDateString());
+                    const values = ts.points.map(p => p.value);
+                    
+                    const ctx = document.getElementById('timeSeriesChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: ts.name,
+                                data: values,
+                                borderColor: 'rgb(75, 192, 192)',
+                                tension: 0.1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    title: {
+                                        display: true,
+                                        text: ts.unit || 'Value'
+                                    }
+                                },
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Date'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('queryResults').innerHTML = '<div class="alert alert-danger">Error processing query</div>';
+            } finally {
+                // Hide spinner
+                spinner.style.display = 'none';
+            }
+        });
+        
+        // Helper function to get CSRF token from cookies
+        function getCsrfToken() {
+            const name = 'csrftoken';
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html>

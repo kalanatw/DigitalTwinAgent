@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -14,45 +14,24 @@
     <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    
+    <!-- Include centralized theme configuration -->
+    {% include 'theme_config.html' %}
+    
     <style>
-        /* Modern Design System */
-        :root {
-            --primary: #3b82f6;
-            --primary-dark: #1d4ed8;
-            --secondary: #8b5cf6;
-            --accent: #06b6d4;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
-            --gray-50: #f9fafb;
-            --gray-100: #f3f4f6;
-            --gray-200: #e5e7eb;
-            --gray-300: #d1d5db;
-            --gray-400: #9ca3af;
-            --gray-500: #6b7280;
-            --gray-600: #4b5563;
-            --gray-700: #374151;
-            --gray-800: #1f2937;
-            --gray-900: #111827;
+        /* Additional base template specific styles */
+        /* Theme toggle button */
+        .theme-toggle {
+            background: var(--bg-glass);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-glass);
+            color: var(--text-inverse);
+            transition: all 0.3s ease;
         }
         
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        
-        /* Glass morphism effect */
-        .glass {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .glass-strong {
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(25px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
+        .theme-toggle:hover {
+            background: var(--bg-glass-strong);
+            transform: scale(1.05);
         }
         
         /* Modern scrollbar */
@@ -538,39 +517,188 @@
                         <span class="hidden xl:inline">About</span>
                     </a>
                     
+                    <!-- Theme Toggle -->
+                    <button @click="toggleTheme()" 
+                            class="theme-toggle text-white/80 hover:text-white px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/10 flex items-center"
+                            x-data="{ isDark: false }"
+                            x-init="isDark = document.documentElement.getAttribute('data-theme') === 'dark'">
+                        <i class="fas fa-moon text-sm" x-show="!isDark"></i>
+                        <i class="fas fa-sun text-sm" x-show="isDark"></i>
+                    </button>
+                    
                     <!-- User Authentication Status -->
-                    <div id="user-auth-status" class="relative" x-data="{ open: false, isAuthenticated: false, username: '' }">
-                        <button @click="open = !open" 
-                                class="text-white/80 hover:text-white px-2 xl:px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/10 flex items-center border border-transparent hover:border-white/20">
-                            <i class="fas fa-user mr-1 xl:mr-2"></i>
-                            <span x-text="isAuthenticated ? username : 'Guest'" class="hidden xl:inline"></span>
-                            <i class="fas fa-chevron-down ml-1 xl:ml-2 text-xs transition-transform duration-200" :class="{ 'rotate-180': open }"></i>
-                        </button>
+                    <div id="user-auth-status" class="relative" x-data="{ 
+                        open: false, 
+                        isAuthenticated: false, 
+                        username: '',
+                        userProfile: null,
+                        loading: false,
                         
-                        <!-- Auth Dropdown -->
-                        <div x-show="open" @click.away="open = false" 
+                        init() {
+                            this.checkAuthStatus();
+                        },
+                        
+                        checkAuthStatus() {
+                            fetch('/api/auth/user/')
+                                .then(response => response.json())
+                                .then(data => {
+                                    this.isAuthenticated = data.isAuthenticated || false;
+                                    this.username = data.username || '';
+                                    
+                                    if (this.isAuthenticated) {
+                                        this.loadUserProfile();
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Error checking auth status:', error);
+                                    this.isAuthenticated = false;
+                                    this.username = '';
+                                });
+                        },
+                        
+                        loadUserProfile() {
+                            fetch('/api/auth/profile/')
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (!data.error) {
+                                        this.userProfile = data;
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Error loading profile:', error);
+                                });
+                        },
+                        
+                        handleLogout() {
+                            if (window.handleLogout) {
+                                window.handleLogout();
+                            }
+                        }
+                    }">
+                        
+                        <!-- User Button -->
+                        <template x-if="isAuthenticated">
+                            <button @click="open = !open" 
+                                    class="text-white/80 hover:text-white px-2 xl:px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/10 flex items-center border border-transparent hover:border-white/20">
+                                <div class="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center mr-2">
+                                    <span class="text-white text-sm font-bold" x-text="username.charAt(0).toUpperCase()"></span>
+                                </div>
+                                <span x-text="username" class="hidden xl:inline"></span>
+                                <i class="fas fa-chevron-down ml-1 xl:ml-2 text-xs transition-transform duration-200" :class="{ 'rotate-180': open }"></i>
+                            </button>
+                        </template>
+                        
+                        <!-- Guest/Login Button -->
+                        <template x-if="!isAuthenticated">
+                            <a href="/login/" 
+                               class="text-white/80 hover:text-white px-2 xl:px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:bg-white/10 flex items-center border border-transparent hover:border-white/20">
+                                <div class="w-8 h-8 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center mr-2">
+                                    <i class="fas fa-user text-white text-sm"></i>
+                                </div>
+                                <span class="hidden xl:inline">Sign In</span>
+                                <i class="fas fa-sign-in-alt ml-1 xl:ml-2 text-xs"></i>
+                            </a>
+                        </template>
+                        
+                        <!-- Enhanced User Dropdown -->
+                        <div x-show="open && isAuthenticated" @click.away="open = false" 
                              x-transition:enter="transition ease-out duration-200"
-                             x-transition:enter-start="opacity-0 scale-95"
-                             x-transition:enter-end="opacity-1 scale-100"
+                             x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+                             x-transition:enter-end="opacity-1 scale-100 translate-y-0"
                              x-transition:leave="transition ease-in duration-150"
-                             x-transition:leave-start="opacity-1 scale-100"
-                             x-transition:leave-end="opacity-0 scale-95"
-                             class="absolute right-0 mt-2 w-48 rounded-xl shadow-lg glass border border-white/20 z-50">
-                            <div class="px-4 py-3 border-b border-white/20">
-                                <p class="text-sm text-white" x-text="isAuthenticated ? 'Logged in as:' : 'Not logged in'"></p>
-                                <p class="text-sm font-medium text-white truncate" x-text="isAuthenticated ? username : ''"></p>
+                             x-transition:leave-start="opacity-1 scale-100 translate-y-0"
+                             x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+                             class="absolute right-0 mt-2 w-80 rounded-xl shadow-xl glass border border-white/20 z-50 overflow-hidden">
+                            
+                            <!-- Profile Header -->
+                            <div class="px-4 py-4 border-b border-white/20 bg-gradient-to-r from-blue-500/20 to-purple-500/20">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-14 h-14 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center shadow-lg">
+                                        <span class="text-white text-xl font-bold" x-text="username.charAt(0).toUpperCase()"></span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-white font-semibold text-lg" x-text="username"></p>
+                                        <p class="text-white/70 text-sm">Digital Twin User</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-white/60 text-xs">Status</div>
+                                        <div class="flex items-center text-green-300 text-sm">
+                                            <div class="w-2 h-2 bg-green-400 rounded-full mr-1 animate-pulse"></div>
+                                            Online
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="py-1">
-                                <template x-if="isAuthenticated">
-                                    <a href="#" @click.prevent="logout()" class="block px-4 py-2 text-sm text-white hover:bg-white/10">
-                                        <i class="fas fa-sign-out-alt mr-2"></i> Log out
-                                    </a>
-                                </template>
-                                <template x-if="!isAuthenticated">
-                                    <a href="/login/" class="block px-4 py-2 text-sm text-white hover:bg-white/10">
-                                        <i class="fas fa-sign-in-alt mr-2"></i> Log in
-                                    </a>
-                                </template>
+                            
+                            <!-- Quick Stats -->
+                            <div x-show="userProfile" class="px-4 py-3 bg-white/5">
+                                <div class="grid grid-cols-3 gap-3 text-center">
+                                    <div class="bg-white/10 rounded-lg p-2">
+                                        <div class="text-white font-bold text-lg" x-text="userProfile?.usage_stats?.total_tokens_used ? formatNumber(userProfile.usage_stats.total_tokens_used) : '0'"></div>
+                                        <div class="text-white/60 text-xs">Tokens</div>
+                                    </div>
+                                    <div class="bg-white/10 rounded-lg p-2">
+                                        <div class="text-white font-bold text-lg" x-text="userProfile?.usage_stats?.total_chat_sessions || '0'"></div>
+                                        <div class="text-white/60 text-xs">Sessions</div>
+                                    </div>
+                                    <div class="bg-white/10 rounded-lg p-2">
+                                        <div class="text-white font-bold text-lg" x-text="userProfile?.usage_stats?.total_messages_sent || '0'"></div>
+                                        <div class="text-white/60 text-xs">Messages</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Usage Progress Bar -->
+                                <div class="mt-3">
+                                    <div class="flex justify-between text-xs text-white/60 mb-1">
+                                        <span>Monthly Usage</span>
+                                        <span x-text="(userProfile?.usage_stats?.token_usage_percentage || 0).toFixed(1) + '%'"></span>
+                                    </div>
+                                    <div class="w-full bg-white/20 rounded-full h-2">
+                                        <div class="bg-gradient-to-r from-blue-400 to-green-400 h-2 rounded-full transition-all duration-500" 
+                                             :style="'width: ' + Math.min(userProfile?.usage_stats?.token_usage_percentage || 0, 100) + '%'"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Menu Items -->
+                            <div class="py-2">
+                                <a href="/profile/" @click="open = false" 
+                                   class="flex items-center px-4 py-3 text-white hover:bg-white/10 transition-colors group">
+                                    <div class="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center mr-3 group-hover:bg-white/20 transition-colors">
+                                        <i class="fas fa-user-circle text-lg"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="font-medium">View Profile</div>
+                                        <div class="text-xs text-white/60">Manage your account & usage</div>
+                                    </div>
+                                    <i class="fas fa-chevron-right text-xs text-white/40"></i>
+                                </a>
+                                
+                                <a href="/settings/" @click="open = false" 
+                                   class="flex items-center px-4 py-3 text-white hover:bg-white/10 transition-colors group">
+                                    <div class="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center mr-3 group-hover:bg-white/20 transition-colors">
+                                        <i class="fas fa-cog text-lg"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="font-medium">Settings</div>
+                                        <div class="text-xs text-white/60">Configure agents & preferences</div>
+                                    </div>
+                                    <i class="fas fa-chevron-right text-xs text-white/40"></i>
+                                </a>
+                                
+                                <div class="border-t border-white/20 my-2"></div>
+                                
+                                <button @click.prevent="handleLogout()" 
+                                        class="w-full flex items-center px-4 py-3 text-white hover:bg-red-500/20 transition-colors group">
+                                    <div class="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center mr-3 group-hover:bg-red-500/30 transition-colors">
+                                        <i class="fas fa-sign-out-alt text-lg text-red-300"></i>
+                                    </div>
+                                    <div class="flex-1 text-left">
+                                        <div class="font-medium">Sign Out</div>
+                                        <div class="text-xs text-white/60">End your session</div>
+                                    </div>
+                                    <i class="fas fa-chevron-right text-xs text-white/40"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -668,18 +796,63 @@
                        class="text-white/80 hover:text-white block px-3 py-3 rounded-xl textbase font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
                         <i class="fas fa-info-circle mr-3 w-5"></i>About
                     </a>
+                    
+                    <!-- Mobile Theme Toggle -->
+                    <button @click="toggleTheme(); mobileMenuOpen = false" 
+                            class="text-white/80 hover:text-white block px-3 py-3 rounded-xl text-base font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item w-full text-left"
+                            x-data="{ isDark: false }"
+                            x-init="isDark = document.documentElement.getAttribute('data-theme') === 'dark'">
+                        <i class="fas fa-moon mr-3 w-5" x-show="!isDark"></i>
+                        <i class="fas fa-sun mr-3 w-5" x-show="isDark"></i>
+                        <span x-text="isDark ? 'Light Mode' : 'Dark Mode'"></span>
+                    </button>
+                    
                     <!-- Mobile Auth Links -->
-                    <div id="mobile-auth-links">
-                        <a href="/login/" 
-                            @click="mobileMenuOpen = false"
-                            class="auth-login-link text-white/80 hover:text-white block px-3 py-3 rounded-xl textbase font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
-                            <i class="fas fa-sign-in-alt mr-3 w-5"></i>Login
-                        </a>
-                        <a href="#" 
-                            @click="logout(); mobileMenuOpen = false"
-                            class="auth-logout-link hidden text-white/80 hover:text-white block px-3 py-3 rounded-xl textbase font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
-                            <i class="fas fa-sign-out-alt mr-3 w-5"></i>Logout (<span class="username-display">User</span>)
-                        </a>
+                    <div id="mobile-auth-links" x-data="{ 
+                            isAuthenticated: false, 
+                            username: '',
+                            handleLogout() {
+                                if (window.handleLogout) {
+                                    window.handleLogout();
+                                }
+                            },
+                            updateFromEvent(event) {
+                                this.isAuthenticated = event.detail.isAuthenticated;
+                                this.username = event.detail.username;
+                            }
+                        }" 
+                         x-init="
+                            // Get initial auth status from window if available
+                            if (window.lastAuthStatus) {
+                                isAuthenticated = window.lastAuthStatus.isAuthenticated;
+                                username = window.lastAuthStatus.username;
+                            }
+                         " 
+                         @auth-update.window="updateFromEvent($event)">
+                        <template x-if="!isAuthenticated">
+                            <a href="/login/" 
+                                @click="mobileMenuOpen = false"
+                                class="text-white/80 hover:text-white block px-3 py-3 rounded-xl text-base font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
+                                <i class="fas fa-sign-in-alt mr-3 w-5"></i>Sign In
+                            </a>
+                        </template>
+                        
+                        <template x-if="isAuthenticated">
+                            <div class="border-t border-white/20 mt-2 pt-2">
+                                <div class="px-3 py-2 text-white/60 text-sm">
+                                    <span x-text="'Signed in as ' + username"></span>
+                                </div>
+                                <a href="/profile/" 
+                                    @click="mobileMenuOpen = false"
+                                    class="text-white/80 hover:text-white block px-3 py-3 rounded-xl text-base font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
+                                    <i class="fas fa-user-circle mr-3 w-5"></i>Profile
+                                </a>
+                                <button @click="handleLogout(); mobileMenuOpen = false"
+                                        class="w-full text-left text-white/80 hover:text-white block px-3 py-3 rounded-xl text-base font-medium transition-all duration-200 hover:bg-white/10 border border-transparent hover:border-white/20 mobile-nav-item">
+                                    <i class="fas fa-sign-out-alt mr-3 w-5"></i>Sign Out
+                                </button>
+                            </div>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -693,42 +866,25 @@
     <!-- Footer with Glass Effect -->
     <footer class="glass border-t border-white/20 text-white py-12 mt-16">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div class="space-y-4">
-                    <h3 class="text-xl font-semibold">RAGAgent Instance</h3>
-                    <p class="text-white/80 leading-relaxed">Advanced AI-powered RAG system with real-time insights and intelligent automation.</p>
+                    <h3 class="text-xl font-semibold">Digital Twin Assistant</h3>
+                    <p class="text-white/80 leading-relaxed">Your intelligent companion for digital twin systems, powered by advanced AI technology.</p>
                 </div>
                 <div class="space-y-4">
-                    <h3 class="text-xl font-semibold">Features</h3>
+                    <h3 class="text-xl font-semibold">Quick Links</h3>
                     <ul class="text-white/80 space-y-3">
                         <li class="flex items-center">
-                            <i class="fas fa-thermometer-half mr-3 text-blue-300"></i>
-                            Real-time Sensor Monitoring
+                            <i class="fas fa-comments mr-3 text-blue-300"></i>
+                            <a href="/chat/" class="hover:text-white transition-colors">Start Chatting</a>
                         </li>
                         <li class="flex items-center">
-                            <i class="fas fa-chart-line mr-3 text-green-300"></i>
-                            System Status Analysis
+                            <i class="fas fa-file-upload mr-3 text-green-300"></i>
+                            <a href="/documents/" class="hover:text-white transition-colors">Upload Documents</a>
                         </li>
                         <li class="flex items-center">
-                            <i class="fas fa-robot mr-3 text-purple-300"></i>
-                            AI-Powered Insights
-                        </li>
-                    </ul>
-                </div>
-                <div class="space-y-4">
-                    <h3 class="text-xl font-semibold">Technology Stack</h3>
-                    <ul class="text-white/80 space-y-3">
-                        <li class="flex items-center">
-                            <i class="fab fa-python mr-3 text-yellow-300"></i>
-                            Django & FastAPI
-                        </li>
-                        <li class="flex items-center">
-                            <i class="fas fa-brain mr-3 text-pink-300"></i>
-                            OpenAI Agents SDK
-                        </li>
-                        <li class="flex items-center">
-                            <i class="fas fa-database mr-3 text-red-300"></i>
-                            Redis Cache
+                            <i class="fas fa-envelope mr-3 text-purple-300"></i>
+                            <a href="/email/" class="hover:text-white transition-colors">Email Automation</a>
                         </li>
                     </ul>
                 </div>
@@ -736,7 +892,7 @@
             <div class="border-t border-white/20 mt-12 pt-8 text-center">
                 <p class="text-white/60">
                     &copy; 2025 Digital Twin Assistant. Built with 
-                    <span class="text-red-300">❤️</span> using OpenAI Agents SDK.
+                    <span class="text-red-300">❤️</span> for intelligent automation.
                 </p>
             </div>
         </div>
@@ -745,61 +901,153 @@
     <!-- Authentication script -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize authentication status check
+            initializeAuth();
+        });
+        
+        // Initialize authentication system
+        function initializeAuth() {
+            // Add Alpine.js methods to window for global access
+            window.checkAuthStatus = checkAuthStatus;
+            window.handleLogout = handleLogout;
+            window.formatNumber = formatNumber;
+            window.toggleTheme = toggleTheme;
+            
+            // Initialize theme
+            initializeTheme();
+            
             // Check authentication status on page load
             checkAuthStatus();
             
-            // Initialize Alpine.js data for user auth status
-            if (typeof Alpine !== 'undefined') {
-                const authStatus = document.getElementById('user-auth-status')?.__x;
-                if (authStatus) {
-                    authStatus.$data.logout = logout;
+            // Listen for storage events (for cross-tab login sync) - but with debouncing
+            let storageEventTimeout;
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'auth_update') {
+                    clearTimeout(storageEventTimeout);
+                    storageEventTimeout = setTimeout(() => {
+                        checkAuthStatus();
+                    }, 500); // Debounce storage events
                 }
-            }
-        });
+            });
+        }
         
-        // Function to check authentication status
+        // Prevent multiple simultaneous auth checks
+        let authCheckInProgress = false;
+        let lastAuthCheck = 0;
+        const AUTH_CHECK_DEBOUNCE = 1000; // 1 second
+        
+        // Function to check authentication status and load profile
         function checkAuthStatus() {
-            fetch('/api/auth/user/')
+            const now = Date.now();
+            
+            // Prevent excessive calls
+            if (authCheckInProgress || (now - lastAuthCheck) < AUTH_CHECK_DEBOUNCE) {
+                return;
+            }
+            
+            authCheckInProgress = true;
+            lastAuthCheck = now;
+            
+            fetch('/api/auth/user/', {
+                cache: 'no-cache',
+                headers: {
+                    'Cache-Control': 'no-cache'
+                }
+            })
                 .then(response => response.json())
                 .then(data => {
                     updateAuthUI(data.isAuthenticated, data.username);
+                    
+                    // Load profile data if authenticated (but not immediately to prevent loops)
+                    if (data.isAuthenticated) {
+                        setTimeout(() => loadUserProfile(), 100);
+                    }
                 })
                 .catch(error => {
                     console.error('Error checking auth status:', error);
                     updateAuthUI(false, '');
+                })
+                .finally(() => {
+                    authCheckInProgress = false;
+                });
+        }
+        
+        // Prevent multiple simultaneous profile loads
+        let profileLoadInProgress = false;
+        let lastProfileLoad = 0;
+        const PROFILE_LOAD_DEBOUNCE = 2000; // 2 seconds
+        
+        // Load user profile data
+        function loadUserProfile() {
+            const now = Date.now();
+            
+            // Prevent excessive calls
+            if (profileLoadInProgress || (now - lastProfileLoad) < PROFILE_LOAD_DEBOUNCE) {
+                return;
+            }
+            
+            profileLoadInProgress = true;
+            lastProfileLoad = now;
+            
+            fetch('/api/auth/profile/')
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.error) {
+                        // Update Alpine.js data with profile info
+                        const authComponent = document.getElementById('user-auth-status')?.__x;
+                        if (authComponent) {
+                            authComponent.$data.userProfile = data;
+                        }
+                        
+                        // Trigger custom event for profile update
+                        window.dispatchEvent(new CustomEvent('profileUpdated', { detail: data }));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading profile:', error);
+                })
+                .finally(() => {
+                    profileLoadInProgress = false;
                 });
         }
         
         // Update UI based on authentication status
         function updateAuthUI(isAuthenticated, username) {
-            // Update Alpine.js data
-            const authStatus = document.getElementById('user-auth-status')?.__x;
-            if (authStatus) {
-                authStatus.$data.isAuthenticated = isAuthenticated;
-                authStatus.$data.username = username || 'Guest';
+            // Update Alpine.js data for main navigation
+            const authComponent = document.getElementById('user-auth-status')?.__x;
+            if (authComponent) {
+                authComponent.$data.isAuthenticated = isAuthenticated;
+                authComponent.$data.username = username || '';
+                
+                // Add method references
+                authComponent.$data.handleLogout = handleLogout;
+                authComponent.$data.formatNumber = formatNumber;
+                authComponent.$data.checkAuthStatus = checkAuthStatus;
             }
             
-            // Update mobile menu elements
-            const loginLink = document.querySelector('.auth-login-link');
-            const logoutLink = document.querySelector('.auth-logout-link');
-            const usernameDisplay = document.querySelector('.username-display');
+            // Update mobile navigation elements
+            const mobileAuthComponent = document.getElementById('mobile-auth-links')?.__x;
+            if (mobileAuthComponent) {
+                mobileAuthComponent.$data.isAuthenticated = isAuthenticated;
+                mobileAuthComponent.$data.username = username || '';
+            }
             
-            if (loginLink && logoutLink) {
-                if (isAuthenticated) {
-                    loginLink.classList.add('hidden');
-                    logoutLink.classList.remove('hidden');
-                    if (usernameDisplay) {
-                        usernameDisplay.textContent = username;
-                    }
-                } else {
-                    loginLink.classList.remove('hidden');
-                    logoutLink.classList.add('hidden');
-                }
+            // Only dispatch event if status actually changed
+            const currentStatus = window.lastAuthStatus;
+            if (!currentStatus || currentStatus.isAuthenticated !== isAuthenticated || currentStatus.username !== username) {
+                window.lastAuthStatus = { isAuthenticated, username };
+                
+                // Use setTimeout to prevent immediate recursive calls
+                setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('auth-update', { 
+                        detail: { isAuthenticated, username } 
+                    }));
+                }, 50);
             }
         }
         
         // Function to handle logout
-        function logout() {
+        function handleLogout() {
             // Get CSRF token first
             fetch('/api/auth/csrf-token/')
                 .then(response => response.json())
@@ -818,13 +1066,74 @@
                     if (data.success) {
                         // Update UI to reflect logged out state
                         updateAuthUI(false, '');
-                        // Redirect to home page
-                        window.location.href = '/';
+                        // Clear profile data
+                        const authComponent = document.getElementById('user-auth-status')?.__x;
+                        if (authComponent) {
+                            authComponent.$data.userProfile = null;
+                        }
+                        // Redirect to login page
+                        window.location.href = '/login/';
                     }
                 })
                 .catch(error => {
                     console.error('Error during logout:', error);
                 });
+        }
+        
+        // Legacy logout function for backward compatibility
+        function logout() {
+            handleLogout();
+        }
+        
+        // Format numbers for display
+        function formatNumber(num) {
+            if (!num) return '0';
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'M';
+            } else if (num >= 1000) {
+                return (num / 1000).toFixed(1) + 'K';
+            }
+            return num.toLocaleString();
+        }
+        
+        // Auto-refresh profile data every 2 minutes when authenticated (reduced frequency)
+        setInterval(() => {
+            const authComponent = document.getElementById('user-auth-status')?.__x;
+            if (authComponent && authComponent.$data.isAuthenticated && !profileLoadInProgress) {
+                loadUserProfile();
+            }
+        }, 120000); // 2 minutes instead of 30 seconds
+        
+        // Theme Management
+        function initializeTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+            
+            document.documentElement.setAttribute('data-theme', theme);
+            
+            // Update all theme toggle buttons
+            updateThemeButtons(theme === 'dark');
+        }
+        
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            // Update all theme toggle buttons
+            updateThemeButtons(newTheme === 'dark');
+        }
+        
+        function updateThemeButtons(isDark) {
+            // Update Alpine.js theme toggle components
+            document.querySelectorAll('[x-data*="isDark"]').forEach(el => {
+                if (el.__x) {
+                    el.__x.$data.isDark = isDark;
+                }
+            });
         }
     </script>
 </body>

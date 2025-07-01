@@ -19,6 +19,9 @@ urlpatterns = [
     path('api/auth/logout/', agent_settings_views.logout_view, name='logout'),
     path('api/auth/user/', agent_settings_views.user_info, name='user_info'),
     path('api/auth/csrf-token/', agent_settings_views.get_csrf_token, name='csrf_token'),
+    path('api/auth/profile/', agent_settings_views.user_profile, name='user_profile'),
+    path('api/auth/signup/', agent_settings_views.signup_view, name='signup'),
+    path('api/auth/update-tokens/', agent_settings_views.update_token_usage, name='update_token_usage'),
     
     # Chat History endpoints
     path('api/chat/history/<str:session_id>/', agent_settings_views.get_chat_history, name='get_chat_history'),
@@ -84,6 +87,8 @@ urlpatterns = [
     
     # Main template views
     path('', TemplateView.as_view(template_name='chat.html'), name='home'),
+    path('login/', TemplateView.as_view(template_name='login.html'), name='login_page'),
+    path('profile/', TemplateView.as_view(template_name='profile.html'), name='profile_page'),
     path('about/', TemplateView.as_view(template_name='about.html'), name='about'),
     path('settings/', TemplateView.as_view(template_name='settings.html'), name='settings'),
     path('dms/', TemplateView.as_view(template_name='dms.html'), name='dms'),

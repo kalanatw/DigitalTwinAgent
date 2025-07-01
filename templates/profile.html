@@ -1,0 +1,704 @@
+{% extends "base.html" %}
+
+{% block title %}User Profile | Digital Twin{% endblock %}
+
+{% block content %}
+<div class="container mt-5" x-data="profileData()" x-init="initProfile()">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="ios-card">
+                <div class="ios-card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2>User Profile</h2>
+                            <p class="subtitle">Account Information & Usage Statistics</p>
+                        </div>
+                        <div class="profile-status">
+                            <span x-show="loading" class="badge badge-info">
+                                <i class="fas fa-spinner fa-spin mr-1"></i> Loading...
+                            </span>
+                            <span x-show="!loading && lastUpdated" class="badge badge-success">
+                                <i class="fas fa-check mr-1"></i> <span x-text="'Updated ' + getTimeAgo(lastUpdated)"></span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="ios-card-body">
+                    <div id="profileAlert" x-show="alertMessage" 
+                         class="ios-alert" 
+                         :class="alertType" 
+                         x-text="alertMessage"></div>
+                    
+                    <!-- User Information -->
+                    <div class="profile-section">
+                        <h4 class="section-title">
+                            <i class="fas fa-user mr-2"></i>Account Information
+                        </h4>
+                        <div class="user-info-grid">
+                            <div class="info-item">
+                                <label>Username</label>
+                                <span x-text="profileData?.user?.username || 'Loading...'"></span>
+                            </div>
+                            <div class="info-item">
+                                <label>Email</label>
+                                <span x-text="profileData?.user?.email || 'Not set'"></span>
+                            </div>
+                            <div class="info-item">
+                                <label>Member Since</label>
+                                <span x-text="profileData?.user?.date_joined ? formatDate(profileData.user.date_joined) : 'Loading...'"></span>
+                            </div>
+                            <div class="info-item">
+                                <label>Last Login</label>
+                                <span x-text="profileData?.user?.last_login ? formatDate(profileData.user.last_login) : 'Never'"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Token Usage Statistics -->
+                    <div class="profile-section">
+                        <h4 class="section-title">
+                            <i class="fas fa-chart-line mr-2"></i>Token Usage Statistics
+                            <span class="live-indicator" title="Updates in real-time">
+                                <i class="fas fa-circle"></i> LIVE
+                            </span>
+                        </h4>
+                        <div class="usage-stats">
+                            <div class="stat-card">
+                                <div class="stat-number" x-text="formatNumber(profileData?.usage_stats?.total_tokens_used || 0)"></div>
+                                <div class="stat-label">Total Tokens Used</div>
+                                <div class="stat-change" x-show="tokenChange !== 0">
+                                    <i class="fas fa-arrow-up" x-show="tokenChange > 0"></i>
+                                    <span x-text="'+' + tokenChange" x-show="tokenChange > 0"></span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" x-text="formatNumber(profileData?.usage_stats?.total_input_tokens || 0)"></div>
+                                <div class="stat-label">Input Tokens</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" x-text="formatNumber(profileData?.usage_stats?.total_output_tokens || 0)"></div>
+                                <div class="stat-label">Output Tokens</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" x-text="(profileData?.usage_stats?.token_usage_percentage || 0).toFixed(1) + '%'"></div>
+                                <div class="stat-label">Monthly Usage</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Token Usage Progress Bar -->
+                        <div class="progress-container">
+                            <label>Monthly Token Usage</label>
+                            <div class="progress-bar">
+                                <div class="progress-fill" 
+                                     :style="'width: ' + Math.min(profileData?.usage_stats?.token_usage_percentage || 0, 100) + '%'"></div>
+                            </div>
+                            <div class="progress-text">
+                                <span x-text="formatNumber(profileData?.usage_stats?.total_tokens_used || 0)"></span> / 
+                                <span x-text="formatNumber(profileData?.limits?.monthly_token_limit || 0)"></span> tokens
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Activity Statistics -->
+                    <div class="profile-section">
+                        <h4 class="section-title">
+                            <i class="fas fa-activity mr-2"></i>Activity Statistics
+                        </h4>
+                        <div class="activity-grid">
+                            <div class="activity-item">
+                                <span class="activity-number" x-text="profileData?.usage_stats?.total_chat_sessions || 0"></span>
+                                <span class="activity-label">Chat Sessions</span>
+                            </div>
+                            <div class="activity-item">
+                                <span class="activity-number" x-text="profileData?.usage_stats?.total_messages_sent || 0"></span>
+                                <span class="activity-label">Messages Sent</span>
+                            </div>
+                            <div class="activity-item">
+                                <span class="activity-number" x-text="profileData?.usage_stats?.total_documents_uploaded || 0"></span>
+                                <span class="activity-label">Documents Uploaded</span>
+                            </div>
+                            <div class="activity-item">
+                                <span class="activity-number" x-text="profileData?.usage_stats?.total_emails_processed || 0"></span>
+                                <span class="activity-label">Emails Processed</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Sessions -->
+                    <div class="profile-section">
+                        <h4 class="section-title">
+                            <i class="fas fa-history mr-2"></i>Recent Sessions
+                        </h4>
+                        <div class="sessions-list">
+                            <template x-if="!profileData?.recent_sessions || profileData.recent_sessions.length === 0">
+                                <div class="loading-spinner">No recent sessions found</div>
+                            </template>
+                            <template x-for="session in profileData?.recent_sessions || []" :key="session.session_id">
+                                <div class="session-item">
+                                    <div class="session-header">
+                                        <span class="session-id" x-text="session.session_id"></span>
+                                        <span class="session-time" x-text="formatDate(session.last_activity)"></span>
+                                    </div>
+                                    <div class="session-details">
+                                        <div class="session-detail">
+                                            <strong x-text="session.agent_name"></strong>
+                                            <span>Agent</span>
+                                        </div>
+                                        <div class="session-detail">
+                                            <strong x-text="session.messages_count"></strong>
+                                            <span>Messages</span>
+                                        </div>
+                                        <div class="session-detail">
+                                            <strong x-text="formatNumber(session.tokens_used)"></strong>
+                                            <span>Tokens</span>
+                                        </div>
+                                        <div class="session-detail">
+                                            <strong x-text="formatRelativeTime(session.created_at)"></strong>
+                                            <span>Created</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="profile-actions">
+                        <button @click="refreshProfile()" 
+                                :disabled="loading"
+                                class="ios-button secondary">
+                            <i class="fas fa-sync-alt mr-2" :class="{'fa-spin': loading}"></i>
+                            <span x-text="loading ? 'Refreshing...' : 'Refresh Data'"></span>
+                        </button>
+                        <button @click="window.location.href='/'" class="ios-button">
+                            <i class="fas fa-home mr-2"></i>
+                            Back to Chat
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Profile Page Styles */
+.profile-section {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #e5e5ea;
+}
+
+.profile-section:last-child {
+    border-bottom: none;
+}
+
+.section-title {
+    color: var(--ios-text);
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.profile-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.badge-info {
+    background-color: #0ea5e9;
+    color: white;
+}
+
+.badge-success {
+    background-color: #10b981;
+    color: white;
+}
+
+.live-indicator {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: #10b981;
+    font-weight: 500;
+    animation: pulse 2s infinite;
+}
+
+.live-indicator i {
+    animation: blink 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.3; }
+}
+
+.user-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.info-item label {
+    font-size: 0.875rem;
+    color: var(--ios-label);
+    font-weight: 500;
+}
+
+.info-item span {
+    font-size: 1rem;
+    color: var(--ios-text);
+    font-weight: 400;
+}
+
+.usage-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+    border-radius: 12px;
+    padding: 1.5rem 1rem;
+    text-align: center;
+    border: 1px solid #e5e5ea;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--ios-primary);
+    margin-bottom: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--ios-label);
+    font-weight: 500;
+}
+
+.stat-change {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    font-size: 0.7rem;
+    color: #10b981;
+    font-weight: 600;
+    opacity: 0;
+    animation: fadeIn 0.5s ease forwards;
+}
+
+@keyframes fadeIn {
+    to { opacity: 1; }
+}
+
+.progress-container {
+    margin-top: 1rem;
+}
+
+.progress-container label {
+    display: block;
+    font-size: 0.875rem;
+    color: var(--ios-label);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background-color: #e5e5ea;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--ios-primary), #10b981);
+    border-radius: 4px;
+    transition: width 0.8s ease;
+}
+
+.progress-text {
+    font-size: 0.875rem;
+    color: var(--ios-label);
+    text-align: center;
+}
+
+.activity-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+}
+
+.activity-item {
+    text-align: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e5e5ea;
+    transition: all 0.3s ease;
+}
+
+.activity-item:hover {
+    background: #e9ecef;
+    transform: translateY(-2px);
+}
+
+.activity-number {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--ios-primary);
+    margin-bottom: 0.25rem;
+    transition: all 0.3s ease;
+}
+
+.activity-label {
+    font-size: 0.875rem;
+    color: var(--ios-label);
+    font-weight: 500;
+}
+
+.sessions-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.session-item {
+    background: #f8f9fa;
+    border: 1px solid #e5e5ea;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    transition: all 0.2s ease;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.session-item:hover {
+    background: #e9ecef;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.session-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.session-id {
+    font-weight: 600;
+    color: var(--ios-text);
+    font-size: 0.9rem;
+}
+
+.session-time {
+    font-size: 0.8rem;
+    color: var(--ios-label);
+}
+
+.session-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.session-detail {
+    display: flex;
+    flex-direction: column;
+}
+
+.session-detail strong {
+    color: var(--ios-text);
+    font-weight: 600;
+}
+
+.session-detail span {
+    color: var(--ios-label);
+    font-size: 0.75rem;
+}
+
+.profile-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    justify-content: center;
+}
+
+.ios-button.secondary {
+    background: #f8f9fa;
+    color: var(--ios-primary);
+    border: 1px solid var(--ios-primary);
+}
+
+.ios-button.secondary:hover:not(:disabled) {
+    background: var(--ios-primary);
+    color: white;
+}
+
+.ios-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.loading-spinner {
+    text-align: center;
+    padding: 2rem;
+    color: var(--ios-label);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .user-info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .usage-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .activity-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .profile-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .profile-status {
+        margin-top: 0.5rem;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+</style>
+
+<script>
+// Alpine.js data for profile page
+function profileData() {
+    return {
+        profileData: null,
+        loading: false,
+        alertMessage: '',
+        alertType: 'info',
+        lastUpdated: null,
+        tokenChange: 0,
+        previousTokens: 0,
+        refreshInterval: null,
+        
+        // Initialize profile
+        async initProfile() {
+            await this.loadProfile();
+            this.startAutoRefresh();
+            
+            // Listen for profile updates from navigation
+            window.addEventListener('profileUpdated', (event) => {
+                this.updateProfileData(event.detail);
+            });
+        },
+        
+        // Load profile data
+        async loadProfile() {
+            this.loading = true;
+            this.clearAlert();
+            
+            try {
+                const response = await fetch('/api/auth/profile/');
+                const data = await response.json();
+                
+                if (data.error) {
+                    this.showAlert('Error loading profile: ' + data.error, 'error');
+                    return;
+                }
+                
+                this.updateProfileData(data);
+                this.showAlert('Profile loaded successfully', 'success');
+                
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                this.showAlert('Error loading profile data', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        // Update profile data
+        updateProfileData(data) {
+            // Track token changes for animation
+            const newTokens = data.usage_stats?.total_tokens_used || 0;
+            if (this.profileData && this.previousTokens > 0) {
+                this.tokenChange = newTokens - this.previousTokens;
+                if (this.tokenChange > 0) {
+                    setTimeout(() => { this.tokenChange = 0; }, 3000);
+                }
+            }
+            this.previousTokens = newTokens;
+            
+            this.profileData = data;
+            this.lastUpdated = new Date();
+        },
+        
+        // Refresh profile data
+        async refreshProfile() {
+            await this.loadProfile();
+        },
+        
+        // Start auto-refresh
+        startAutoRefresh() {
+            // Refresh every 15 seconds
+            this.refreshInterval = setInterval(() => {
+                if (!this.loading) {
+                    this.loadProfile();
+                }
+            }, 15000);
+        },
+        
+        // Clear auto-refresh when component is destroyed
+        destroy() {
+            if (this.refreshInterval) {
+                clearInterval(this.refreshInterval);
+            }
+        },
+        
+        // Show alert message
+        showAlert(message, type = 'info') {
+            this.alertMessage = message;
+            this.alertType = type;
+            
+            // Auto-hide success messages
+            if (type === 'success') {
+                setTimeout(() => {
+                    this.clearAlert();
+                }, 3000);
+            }
+        },
+        
+        // Clear alert message
+        clearAlert() {
+            this.alertMessage = '';
+        },
+        
+        // Format numbers for display
+        formatNumber(num) {
+            if (!num) return '0';
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'M';
+            } else if (num >= 1000) {
+                return (num / 1000).toFixed(1) + 'K';
+            }
+            return num.toLocaleString();
+        },
+        
+        // Format dates
+        formatDate(dateString) {
+            if (!dateString) return 'Unknown';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        },
+        
+        // Format relative time
+        formatRelativeTime(dateString) {
+            if (!dateString) return 'Unknown';
+            const date = new Date(dateString);
+            const now = new Date();
+            const diff = now - date;
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            
+            if (days === 0) return 'Today';
+            if (days === 1) return 'Yesterday';
+            if (days < 7) return `${days} days ago`;
+            if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
+            return `${Math.floor(days / 30)} months ago`;
+        },
+        
+        // Get time ago text
+        getTimeAgo(date) {
+            if (!date) return '';
+            const now = new Date();
+            const diff = now - date;
+            const seconds = Math.floor(diff / 1000);
+            const minutes = Math.floor(seconds / 60);
+            
+            if (seconds < 60) return 'just now';
+            if (minutes < 60) return `${minutes}m ago`;
+            return `${Math.floor(minutes / 60)}h ago`;
+        }
+    };
+}
+
+// Legacy functions for backward compatibility
+function loadProfile() {
+    // This is handled by Alpine.js now
+}
+
+function refreshProfile() {
+    // Trigger refresh via Alpine.js
+    const profileComponent = document.querySelector('[x-data]')?.__x;
+    if (profileComponent) {
+        profileComponent.$data.refreshProfile();
+    }
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    const profileComponent = document.querySelector('[x-data]')?.__x;
+    if (profileComponent && profileComponent.$data.destroy) {
+        profileComponent.$data.destroy();
+    }
+});
+</script>
+{% endblock %}

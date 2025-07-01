@@ -3,119 +3,152 @@
 {% block title %}About - Digital Twin Assistant{% endblock %}
 
 {% block content %}
+<!-- Include centralized theme configuration -->
+{% include 'theme_config.html' %}
+
 <div class="max-w-4xl mx-auto p-6">
     <!-- Hero Section -->
-    <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-lg p-8 mb-8">
-        <h1 class="text-4xl font-bold mb-4">About Digital Twin Assistant</h1>
-        <p class="text-xl">An advanced AI-powered platform for monitoring and interacting with digital twin systems using the OpenAI Agents SDK.</p>
+    <div class="theme-glass text-white rounded-2xl shadow-lg p-8 mb-8">
+        <h1 class="text-4xl font-bold mb-4">Digital Twin Assistant</h1>
+        <p class="text-xl opacity-90">Your intelligent companion for digital twin systems</p>
     </div>
 
-    <!-- Features Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center mb-4">
-                <i class="fas fa-robot text-blue-500 text-2xl mr-3"></i>
-                <h3 class="text-xl font-semibold">AI-Powered Agent</h3>
+    <!-- What You Can Do Section -->
+    <div class="theme-card rounded-2xl p-8 mb-8">
+        <h2 class="text-3xl font-bold text-primary mb-8 text-center">What You Can Do</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Chat & Ask Questions -->
+            <div class="group">
+                <div class="flex items-start space-x-4 p-6 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 hover:shadow-lg transition-all duration-300">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-comments text-white text-lg"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold theme-text-primary mb-2">Chat & Get Answers</h3>
+                        <p class="theme-text-secondary">Ask questions about your system's performance, get real-time insights, and receive intelligent recommendations.</p>
+                    </div>
+                </div>
             </div>
-            <p class="text-gray-600">Utilizes OpenAI's Agents SDK to provide intelligent conversations about digital twin systems with contextual understanding.</p>
-        </div>
 
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center mb-4">
-                <i class="fas fa-thermometer-half text-red-500 text-2xl mr-3"></i>
-                <h3 class="text-xl font-semibold">Real-time Sensor Data</h3>
+            <!-- Monitor Systems -->
+            <div class="group">
+                <div class="flex items-start space-x-4 p-6 rounded-xl bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 hover:shadow-lg transition-all duration-300">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-chart-line text-white text-lg"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold text-primary mb-2">Monitor Your Systems</h3>
+                        <p class="text-secondary">Track sensor data, system status, and performance metrics in real-time through conversational interface.</p>
+                    </div>
+                </div>
             </div>
-            <p class="text-gray-600">Access to comprehensive sensor data including temperature, pressure, humidity, vibration, and power consumption.</p>
-        </div>
 
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center mb-4">
-                <i class="fas fa-cogs text-green-500 text-2xl mr-3"></i>
-                <h3 class="text-xl font-semibold">System Monitoring</h3>
+            <!-- Upload & Analyze Documents -->
+            <div class="group">
+                <div class="flex items-start space-x-4 p-6 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 hover:shadow-lg transition-all duration-300">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-file-upload text-white text-lg"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold text-primary mb-2">Upload & Analyze Documents</h3>
+                        <p class="text-secondary">Upload manuals, reports, or data files and ask questions about their content to get instant insights.</p>
+                    </div>
+                </div>
             </div>
-            <p class="text-gray-600">Monitor motors, pumps, controllers, and network components with detailed status information and diagnostics.</p>
-        </div>
 
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center mb-4">
-                <i class="fas fa-database text-purple-500 text-2xl mr-3"></i>
-                <h3 class="text-xl font-semibold">Redis Cache</h3>
+            <!-- Email Automation -->
+            <div class="group">
+                <div class="flex items-start space-x-4 p-6 rounded-xl bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 hover:shadow-lg transition-all duration-300">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-envelope text-white text-lg"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold text-primary mb-2">Automate Communications</h3>
+                        <p class="text-secondary">Generate and send automated emails, reports, and notifications based on system events and data.</p>
+                    </div>
+                </div>
             </div>
-            <p class="text-gray-600">High-performance caching with Redis for faster response times and improved user experience.</p>
+
+            <!-- Process CSV Data -->
+            <div class="group">
+                <div class="flex items-start space-x-4 p-6 rounded-xl bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/20 dark:to-teal-800/20 hover:shadow-lg transition-all duration-300">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-teal-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-table text-white text-lg"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold text-primary mb-2">Process Data Files</h3>
+                        <p class="text-secondary">Upload CSV files, analyze data patterns, and get intelligent insights about your information.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customize Settings -->
+            <div class="group">
+                <div class="flex items-start space-x-4 p-6 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 hover:shadow-lg transition-all duration-300">
+                    <div class="flex-shrink-0">
+                        <div class="w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-cog text-white text-lg"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold text-primary mb-2">Customize Your Experience</h3>
+                        <p class="text-secondary">Personalize your assistant's behavior, set preferences, and configure system integrations.</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Technology Stack -->
-    <div class="bg-white rounded-lg shadow-md p-8 mb-8">
-        <h2 class="text-2xl font-bold mb-6">Technology Stack</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="text-center">
-                <i class="fab fa-python text-4xl text-blue-500 mb-3"></i>
-                <h4 class="font-semibold">Backend</h4>
-                <ul class="text-gray-600 mt-2 space-y-1">
-                    <li>Django Framework</li>
-                    <li>FastAPI Integration</li>
-                    <li>OpenAI Agents SDK</li>
-                </ul>
+    <!-- How It Works -->
+    <div class="theme-card rounded-2xl p-8 mb-8">
+        <h2 class="text-3xl font-bold theme-text-primary mb-8 text-center">How It Works</h2>
+        
+        <div class="space-y-6">
+            <div class="flex items-center space-x-6">
+                <div class="flex-shrink-0 w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white font-bold text-lg">1</div>
+                <div>
+                    <h3 class="text-xl font-semibold theme-text-primary mb-2">Connect & Chat</h3>
+                    <p class="theme-text-secondary">Start a conversation with your Digital Twin Assistant using natural language.</p>
+                </div>
             </div>
-            <div class="text-center">
-                <i class="fas fa-database text-4xl text-green-500 mb-3"></i>
-                <h4 class="font-semibold">Data & Cache</h4>
-                <ul class="text-gray-600 mt-2 space-y-1">
-                    <li>Redis Cache</li>
-                    <li>SQLite Database</li>
-                    <li>Session Management</li>
-                </ul>
+            
+            <div class="flex items-center space-x-6">
+                <div class="flex-shrink-0 w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white font-bold text-lg">2</div>
+                <div>
+                    <h3 class="text-xl font-semibold theme-text-primary mb-2">AI Processing</h3>
+                    <p class="theme-text-secondary">Advanced AI analyzes your request and accesses relevant system data and documents.</p>
+                </div>
             </div>
-            <div class="text-center">
-                <i class="fas fa-palette text-4xl text-purple-500 mb-3"></i>
-                <h4 class="font-semibold">Frontend</h4>
-                <ul class="text-gray-600 mt-2 space-y-1">
-                    <li>Tailwind CSS</li>
-                    <li>Alpine.js</li>
-                    <li>Responsive Design</li>
-                </ul>
+            
+            <div class="flex items-center space-x-6">
+                <div class="flex-shrink-0 w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white font-bold text-lg">3</div>
+                <div>
+                    <h3 class="text-xl font-semibold theme-text-primary mb-2">Get Results</h3>
+                    <p class="theme-text-secondary">Receive intelligent insights, data visualizations, and actionable recommendations.</p>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Digital Twin Concepts -->
-    <div class="bg-white rounded-lg shadow-md p-8 mb-8">
-        <h2 class="text-2xl font-bold mb-6">What is a Digital Twin?</h2>
-        <div class="prose max-w-none">
-            <p class="text-gray-600 mb-4">
-                A digital twin is a virtual representation of a physical object, process, or system that can be used for various purposes including monitoring, analysis, and optimization. Our Digital Twin Assistant helps you:
-            </p>
-            <ul class="text-gray-600 space-y-2 mb-4">
-                <li><strong>Monitor:</strong> Real-time sensor data and system status</li>
-                <li><strong>Analyze:</strong> Historical trends and performance metrics</li>
-                <li><strong>Predict:</strong> Potential issues and maintenance needs</li>
-                <li><strong>Optimize:</strong> System performance and efficiency</li>
-            </ul>
-        </div>
-    </div>
-
-    <!-- API Documentation -->
-    <div class="bg-white rounded-lg shadow-md p-8">
-        <h2 class="text-2xl font-bold mb-6">API Endpoints</h2>
-        <div class="space-y-4">
-            <div class="border-l-4 border-blue-500 pl-4">
-                <h4 class="font-semibold">POST /api/chat/</h4>
-                <p class="text-gray-600">Send a message to the Digital Twin Assistant</p>
-            </div>
-            <div class="border-l-4 border-green-500 pl-4">
-                <h4 class="font-semibold">GET /tools/sensor-data</h4>
-                <p class="text-gray-600">Retrieve sensor data directly</p>
-            </div>
-            <div class="border-l-4 border-purple-500 pl-4">
-                <h4 class="font-semibold">GET /tools/system-status</h4>
-                <p class="text-gray-600">Get system component status</p>
-            </div>
-            <div class="border-l-4 border-red-500 pl-4">
-                <h4 class="font-semibold">GET /health</h4>
-                <p class="text-gray-600">Health check endpoint</p>
-            </div>
-        </div>
+    <!-- Getting Started -->
+    <div class="theme-glass text-white rounded-2xl p-8 text-center">
+        <h2 class="text-2xl font-bold mb-4">Ready to Get Started?</h2>
+        <p class="text-lg opacity-90 mb-6">Begin your journey with intelligent digital twin management</p>
+        <a href="/chat/" class="inline-flex items-center px-6 py-3 bg-white theme-text-inverse font-semibold rounded-lg hover:bg-gray-100 transition-colors duration-200">
+            <i class="fas fa-comments mr-2"></i>
+            Start Chatting
+        </a>
     </div>
 </div>
 {% endblock %}

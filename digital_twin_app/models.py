@@ -5,6 +5,8 @@ from django.db import models
 from django.contrib.auth.models import User
 import uuid
 import os
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 
 class TwinVersion(models.Model):
@@ -438,3 +440,66 @@ class TimeSeriesPoint(models.Model):
     
     def __str__(self):
         return f"{self.time_series.title} @ {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}: {self.value}"
+
+
+class UserProfile(models.Model):
+    """Extended user profile with usage statistics"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    
+    # Token usage tracking
+    total_tokens_used = models.BigIntegerField(default=0)
+    total_input_tokens = models.BigIntegerField(default=0)
+    total_output_tokens = models.BigIntegerField(default=0)
+    
+    # Usage statistics
+    total_chat_sessions = models.IntegerField(default=0)
+    total_messages_sent = models.IntegerField(default=0)
+    total_documents_uploaded = models.IntegerField(default=0)
+    total_emails_processed = models.IntegerField(default=0)
+    
+    # Account settings
+    daily_token_limit = models.IntegerField(default=1000000)  # 1M tokens per day
+    monthly_token_limit = models.BigIntegerField(default=30000000)  # 30M tokens per month
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_login = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-updated_at']
+    
+    def __str__(self):
+        return f"{self.user.username}'s Profile"
+    
+    def get_token_usage_percentage(self):
+        """Calculate token usage as percentage of monthly limit"""
+        if self.monthly_token_limit > 0:
+            return min((self.total_tokens_used / self.monthly_token_limit) * 100, 100)
+        return 0
+    
+    def can_use_tokens(self, token_count):
+        """Check if user can use specified number of tokens"""
+        return (self.total_tokens_used + token_count) <= self.monthly_token_limit
+    
+    def add_token_usage(self, input_tokens=0, outputTokens=0):
+        """Add token usage to user's profile"""
+        self.total_input_tokens += input_tokens
+        self.total_output_tokens += outputTokens
+        self.total_tokens_used += (input_tokens + outputTokens)
+        self.save()
+
+
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    """Create a UserProfile when a new User is created"""
+    if created:
+        UserProfile.objects.create(user=instance)
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    """Save the UserProfile when User is saved"""
+    if hasattr(instance, 'profile'):
+        instance.profile.save()
+    else:
+        UserProfile.objects.create(user=instance)

@@ -15,7 +15,8 @@ from django.core.cache import cache
 from django.views.generic import TemplateView
 from django.utils import timezone
 from django.contrib.auth.models import User
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 # Temporarily removed authentication requirement to fix 403 Forbidden errors
 # from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -665,7 +666,7 @@ def export_agents(request):
             'version': '1.0',
             'exported_at': timezone.now().isoformat(),
             'agents': []
-        }
+        };
         
         for agent in agents:
             export_data['agents'].append({
@@ -899,30 +900,113 @@ def create_agent_instance(request):
 
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.csrf import ensure_csrf_cookie
+from rest_framework.decorators import permission_classes
+from rest_framework.permissions import AllowAny
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
+@csrf_exempt
 def login_view(request):
     """Login endpoint with hardcoded credentials for development."""
     username = request.data.get('username')
     password = request.data.get('password')
-    # Hardcoded credentials
-    if username == 'kalana' and password == 'kalana123':
-        user, _ = User.objects.get_or_create(username='kalana')
-        user.set_password('kalana123')
-        user.save()
-        user = authenticate(request, username='kalana', password='kalana123')
-        if user is not None:
-            login(request, user)
-            return JsonResponse({'success': True, 'message': 'Login successful'})
-    return JsonResponse({'success': False, 'message': 'Invalid credentials'}, status=401)
+    
+    # Support multiple hardcoded credentials
+    valid_credentials = [
+        ('admin', 'admin'),
+        ('kalana', 'kalana123')
+    ]
+    
+    credentials_valid = False
+    for valid_user, valid_pass in valid_credentials:
+        if username == valid_user and password == valid_pass:
+            credentials_valid = True
+            
+            # Get or create user
+            user, created = User.objects.get_or_create(username=valid_user)
+            if created or not user.check_password(valid_pass):
+                user.set_password(valid_pass)
+                if valid_user == 'admin':
+                    user.is_staff = True
+                    user.is_superuser = True
+                    user.email = 'admin@digitaltwin.com'
+                    user.first_name = 'Administrator'
+                    user.last_name = 'User'
+                else:
+                    user.email = f'{valid_user}@digitaltwin.com'
+                    user.first_name = valid_user.capitalize()
+                    user.last_name = 'User'
+                user.save()
+            
+            # Clear any existing sessions for this user (optional)
+            from django.contrib.sessions.models import Session
+            from django.utils import timezone
+            
+            # Authenticate and login
+            user = authenticate(request, username=valid_user, password=valid_pass)
+            if user is not None:
+                login(request, user)
+                
+                # Update user profile last login
+                from .models import UserProfile
+                profile, created = UserProfile.objects.get_or_create(user=user)
+                profile.last_login = timezone.now()
+                profile.save()
+                
+                # Set session expiry (24 hours)
+                request.session.set_expiry(86400)
+                
+                logger.info(f"User {username} logged in successfully from {request.META.get('REMOTE_ADDR')}")
+                
+                return JsonResponse({
+                    'success': True, 
+                    'message': 'Login successful',
+                    'user': {
+                        'username': user.username,
+                        'email': user.email,
+                        'is_staff': user.is_staff
+                    }
+                })
+            break
+    
+    if not credentials_valid:
+        logger.warning(f"Failed login attempt for username: {username} from {request.META.get('REMOTE_ADDR')}")
+        return JsonResponse({'success': False, 'message': 'Invalid credentials'}, status=401)
+    
+    # If we get here, authentication failed for some other reason
+    logger.error(f"Authentication failed for valid credentials: {username}")
+    return JsonResponse({'success': False, 'message': 'Authentication error'}, status=500)
 
 @api_view(['POST'])
 def logout_view(request):
-    """Logout endpoint."""
-    logout(request)
-    return JsonResponse({'success': True, 'message': 'Logged out successfully'})
+    """Logout endpoint with session cleanup."""
+    if request.user.is_authenticated:
+        username = request.user.username
+        
+        # Clear any agent sessions for this user
+        AgentSession.objects.filter(user=request.user).update(is_active=False)
+        
+        # Logout user
+        logout(request)
+        
+        # Clear session data
+        request.session.flush()
+        
+        logger.info(f"User {username} logged out successfully from {request.META.get('REMOTE_ADDR')}")
+        
+        return JsonResponse({
+            'success': True, 
+            'message': 'Logged out successfully',
+            'redirect': '/login/'
+        })
+    else:
+        return JsonResponse({
+            'success': False, 
+            'message': 'No active session found'
+        }, status=400)
 
 @api_view(['GET'])
+@permission_classes([AllowAny])
 def user_info(request):
     if request.user.is_authenticated:
         return JsonResponse({'isAuthenticated': True, 'username': request.user.username})
@@ -930,6 +1014,7 @@ def user_info(request):
         return JsonResponse({'isAuthenticated': False})
 
 @api_view(['GET'])
+@permission_classes([AllowAny])
 @ensure_csrf_cookie
 def get_csrf_token(request):
     from django.middleware.csrf import get_token
@@ -1003,3 +1088,121 @@ class SettingsView(TemplateView):
         context = super().get_context_data(**kwargs)
         context['page_title'] = 'Agent Settings'
         return context
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def signup_view(request):
+    """Simple signup endpoint for new users"""
+    username = request.data.get('username')
+    password = request.data.get('password')
+    email = request.data.get('email', '')
+    
+    if not username or not password:
+        return JsonResponse({'success': False, 'message': 'Username and password are required'}, status=400)
+    
+    if User.objects.filter(username=username).exists():
+        return JsonResponse({'success': False, 'message': 'Username already exists'}, status=400)
+    
+    try:
+        user = User.objects.create_user(username=username, password=password, email=email)
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
+            logger.info(f"New user {username} signed up and logged in")
+            return JsonResponse({'success': True, 'message': 'Account created successfully'})
+    except Exception as e:
+        logger.error(f"Error creating user {username}: {str(e)}")
+        return JsonResponse({'success': False, 'message': 'Error creating account'}, status=500)
+    
+    return JsonResponse({'success': False, 'message': 'Error creating account'}, status=500)
+
+@api_view(['GET'])
+def user_profile(request):
+    """Get user profile information including token usage"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    
+    try:
+        profile, created = request.user.profile, False
+        if not hasattr(request.user, 'profile'):
+            from .models import UserProfile
+            profile = UserProfile.objects.create(user=request.user)
+            created = True
+        
+        # Get recent session data
+        recent_sessions = AgentSession.objects.filter(user=request.user).order_by('-last_activity')[:5]
+        
+        profile_data = {
+            'user': {
+                'username': request.user.username,
+                'email': request.user.email,
+                'date_joined': request.user.date_joined.isoformat(),
+                'last_login': request.user.last_login.isoformat() if request.user.last_login else None,
+            },
+            'usage_stats': {
+                'total_tokens_used': profile.total_tokens_used,
+                'total_input_tokens': profile.total_input_tokens,
+                'total_output_tokens': profile.total_output_tokens,
+                'total_chat_sessions': profile.total_chat_sessions,
+                'total_messages_sent': profile.total_messages_sent,
+                'total_documents_uploaded': profile.total_documents_uploaded,
+                'total_emails_processed': profile.total_emails_processed,
+                'token_usage_percentage': profile.get_token_usage_percentage(),
+            },
+            'limits': {
+                'daily_token_limit': profile.daily_token_limit,
+                'monthly_token_limit': profile.monthly_token_limit,
+            },
+            'recent_sessions': [
+                {
+                    'session_id': session.session_id,
+                    'agent_name': session.agent_config.name,
+                    'messages_count': session.messages_count,
+                    'tokens_used': session.total_tokens_used,
+                    'last_activity': session.last_activity.isoformat(),
+                    'created_at': session.created_at.isoformat(),
+                } for session in recent_sessions
+            ]
+        }
+        
+        return JsonResponse(profile_data)
+        
+    except Exception as e:
+        logger.error(f"Error getting user profile for {request.user.username}: {str(e)}")
+        return JsonResponse({'error': 'Error retrieving profile'}, status=500)
+
+@api_view(['POST'])
+def update_token_usage(request):
+    """Update token usage for authenticated user"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+    
+    try:
+        input_tokens = int(request.data.get('input_tokens', 0))
+        output_tokens = int(request.data.get('output_tokens', 0))
+        
+        # Get or create user profile
+        from .models import UserProfile
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        
+        # Update token usage
+        profile.add_token_usage(input_tokens, output_tokens)
+        
+        # Also update message count if specified
+        if request.data.get('increment_messages', False):
+            profile.total_messages_sent += 1
+            profile.save()
+        
+        logger.info(f"Updated token usage for {request.user.username}: +{input_tokens + output_tokens} tokens")
+        
+        return JsonResponse({
+            'success': True,
+            'total_tokens': profile.total_tokens_used,
+            'input_tokens': profile.total_input_tokens,
+            'output_tokens': profile.total_output_tokens
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating token usage for {request.user.username}: {str(e)}")
+        return JsonResponse({'error': 'Error updating token usage'}, status=500)

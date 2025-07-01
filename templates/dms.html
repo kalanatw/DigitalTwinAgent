@@ -3,31 +3,34 @@
 {% block title %}Document Management System - Digital Twin{% endblock %}
 
 {% block content %}
+<!-- Include theme configuration for consistent styling -->
+{% include 'theme_config.html' %}
+
 <div class="max-w-7xl mx-auto p-4 md:p-6" x-data="dmsApp()">
-    <!-- Header Section with iOS 17 Styling -->
-    <div class="bg-white/95 backdrop-blur-lg rounded-3xl shadow-lg p-6 mb-6 border border-gray-100">
+    <!-- Header Section with Theme-aware Styling -->
+    <div class="card rounded-3xl shadow-lg p-6 mb-6">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-                <h1 class="text-3xl font-semibold text-gray-900 mb-2 tracking-tight">Document Management System</h1>
-                <p class="text-gray-600 text-lg">
+                <h1 class="text-3xl font-semibold text-primary mb-2 tracking-tight">Document Management System</h1>
+                <p class="text-secondary text-lg">
                     Manage documents for your Digital Twin versions with AI-powered search
-                    <span x-show="selectedTwinVersion" class="inline-block ml-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                    <span x-show="selectedTwinVersion" class="inline-block ml-2 px-3 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full text-sm font-medium border border-blue-200 dark:border-blue-800">
                         <span x-text="selectedTwinVersion.name"></span> - <span x-text="totalDocuments"></span> documents
                     </span>
                 </p>
             </div>
             <div class="flex space-x-3">
                 <button @click="showUploadModal = true" 
-                        class="bg-blue-50 hover:bg-blue-100 text-blue-600 px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-sm border border-blue-200">
+                        class="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-sm border border-blue-200 dark:border-blue-800">
                     <i class="fas fa-upload mr-2"></i>Upload Document
                 </button>
                 <button @click="showTwinVersionModal = true" 
-                        class="bg-green-50 hover:bg-green-100 text-green-600 px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-sm border border-green-200">
+                        class="bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-sm border border-green-200 dark:border-green-800">
                     <i class="fas fa-plus mr-2"></i>New Twin Version
                 </button>
                 <button @click="refreshData()" 
                         :disabled="isLoading"
-                        class="bg-gray-50 hover:bg-gray-100 text-gray-600 px-4 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-sm border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                        class="bg-gray-500/10 hover:bg-gray-500/20 text-gray-600 dark:text-gray-400 px-4 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-sm border border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
                     <i class="fas fa-sync-alt mr-2" :class="{ 'fa-spin': isLoading }"></i>
                     <span x-show="!isLoading">Refresh</span>
                     <span x-show="isLoading">Refreshing...</span>
@@ -37,32 +40,32 @@
     </div>
 
     <!-- Twin Version Selector -->
-    <div class="bg-white/95 backdrop-blur-lg rounded-3xl shadow-lg p-6 mb-6 border border-gray-100">
-        <h3 class="text-xl font-semibold mb-4 text-gray-900">Twin Versions</h3>
+    <div class="card rounded-3xl shadow-lg p-6 mb-6">
+        <h3 class="text-xl font-semibold mb-4 text-primary">Twin Versions</h3>
         <div x-show="twinVersions.length === 0" class="text-center py-8">
             <div class="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent mx-auto mb-3"></div>
-            <p class="text-gray-500">Loading twin versions...</p>
+            <p class="text-secondary">Loading twin versions...</p>
         </div>
         <div x-show="twinVersions.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <template x-for="version in twinVersions" :key="version.id">
-                <div class="group cursor-pointer p-4 rounded-2xl border-2 transition-all duration-300"
+                <div class="group cursor-pointer p-4 rounded-2xl border-2 transition-all duration-300 theme-hover"
                      :class="selectedTwinVersion?.id === version.id 
-                             ? 'border-blue-500 bg-blue-50' 
-                             : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'"
+                             ? 'theme-selected' 
+                             : 'theme-card'"
                      @click="selectTwinVersion(version)">
                     <div class="flex items-start justify-between">
                         <div class="flex-1">
-                            <h4 class="font-semibold text-gray-900" x-text="version.name"></h4>
-                            <p class="text-sm text-gray-600 mt-1" x-text="'Version ' + version.version"></p>
-                            <p class="text-xs text-gray-500 mt-2" x-text="version.description"></p>
+                            <h4 class="font-semibold theme-text-primary" x-text="version.name"></h4>
+                            <p class="text-sm theme-text-secondary mt-1" x-text="'Version ' + version.version"></p>
+                            <p class="text-xs theme-text-tertiary mt-2" x-text="version.description"></p>
                         </div>
                         <div class="ml-3">
-                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium theme-bg-secondary theme-text-primary border theme-border">
                                 <span x-text="version.document_count"></span> docs
                             </span>
                         </div>
                     </div>
-                    <div class="mt-3 flex items-center text-xs text-gray-500">
+                    <div class="mt-3 flex items-center text-xs theme-text-tertiary">
                         <i class="fas fa-calendar mr-1"></i>
                         <span x-text="formatDate(version.created_at)"></span>
                     </div>
@@ -72,7 +75,7 @@
     </div>
 
     <!-- Search and Filters -->
-    <div class="bg-white/95 backdrop-blur-lg rounded-3xl shadow-lg p-6 mb-6 border border-gray-100" x-show="selectedTwinVersion">
+    <div class="card rounded-3xl shadow-lg p-6 mb-6" x-show="selectedTwinVersion">
         <div class="flex flex-col md:flex-row gap-4 items-center">
             <div class="flex-1">
                 <div class="relative">
@@ -80,7 +83,7 @@
                            x-model="searchQuery" 
                            @input="debouncedSearch()"
                            placeholder="Search documents by title or description..."
-                           class="w-full border-0 bg-gray-50 rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500/30 text-gray-900 placeholder-gray-500">
+                           class="w-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500/30 text-primary placeholder-gray-500 dark:placeholder-gray-400">
                     <div class="absolute right-4 top-1/2 transform -translate-y-1/2">
                         <i class="fas fa-search text-gray-400"></i>
                     </div>
@@ -88,7 +91,7 @@
             </div>
             <div class="flex space-x-3">
                 <select x-model="statusFilter" @change="loadDocuments()"
-                        class="border-0 bg-gray-50 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                        class="border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/30 text-primary">
                     <option value="">All Status</option>
                     <option value="pending">Pending</option>
                     <option value="processing">Processing</option>
@@ -97,7 +100,7 @@
                 </select>
                 <button @click="showSemanticSearch = true" 
                         :disabled="!selectedTwinVersion"
-                        class="bg-purple-50 hover:bg-purple-100 text-purple-600 px-4 py-3 rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                        class="bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 px-4 py-3 rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed border border-purple-200 dark:border-purple-800">
                     <i class="fas fa-brain mr-2"></i>AI Search
                     <span x-show="!selectedTwinVersion" class="ml-1 text-xs">(Select version first)</span>
                 </button>
@@ -107,16 +110,16 @@
 
     <!-- Documents Grid -->
     <div x-show="selectedTwinVersion">
-        <div class="bg-white/95 backdrop-blur-lg rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+        <div class="card rounded-3xl shadow-lg overflow-hidden">
             <!-- Documents Header -->
-            <div class="p-6 border-b border-gray-100">
+            <div class="p-6 border-b border-gray-200 dark:border-gray-700">
                 <div class="flex items-center justify-between">
-                    <h3 class="text-xl font-semibold text-gray-900">Documents</h3>
+                    <h3 class="text-xl font-semibold text-primary">Documents</h3>
                     <div class="flex items-center space-x-3">
-                        <span class="text-sm text-gray-500" x-text="'Total: ' + totalDocuments"></span>
+                        <span class="text-sm text-secondary" x-text="'Total: ' + totalDocuments"></span>
                         <div class="flex space-x-1">
                             <button @click="viewMode = 'grid'" 
-                                    :class="viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-400'"
+                                    :class="viewMode === 'grid' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'text-gray-400'"
                                     class="p-2 rounded-lg transition-colors">
                                 <i class="fas fa-th"></i>
                             </button>
@@ -153,7 +156,7 @@
                 <div x-show="!isLoading && documents.length > 0 && viewMode === 'grid'" 
                      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <template x-for="doc in documents" :key="doc.id">
-                        <div class="group bg-white rounded-2xl border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all duration-300 overflow-hidden">
+                        <div class="group theme-card rounded-2xl theme-hover transition-all duration-300 overflow-hidden">
                             <div class="p-6">
                                 <div class="flex items-start justify-between mb-4">
                                     <div class="flex items-center">
@@ -162,8 +165,8 @@
                                             <i :class="getFileTypeIcon(doc.file_type)" class="text-xl"></i>
                                         </div>
                                         <div class="flex-1">
-                                            <h4 class="font-semibold text-gray-900 mb-1" x-text="doc.title"></h4>
-                                            <p class="text-sm text-gray-500" x-text="formatFileSize(doc.file_size)"></p>
+                                            <h4 class="font-semibold theme-text-primary mb-1" x-text="doc.title"></h4>
+                                            <p class="text-sm theme-text-tertiary" x-text="formatFileSize(doc.file_size)"></p>
                                         </div>
                                     </div>
                                     <div class="flex items-center space-x-2">
@@ -172,23 +175,23 @@
                                             <span x-text="doc.status"></span>
                                         </span>
                                         <div class="relative" x-data="{ open: false }">
-                                            <button @click="open = !open" class="p-2 text-gray-400 hover:text-gray-600">
+                                            <button @click="open = !open" class="p-2 theme-text-tertiary hover:theme-text-secondary">
                                                 <i class="fas fa-ellipsis-v"></i>
                                             </button>
                                             <div x-show="open" @click.away="open = false" 
-                                                 class="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 z-10">
+                                                 class="absolute right-0 mt-2 w-48 theme-dropdown rounded-2xl z-10">
                                                 <div class="py-2">
                                                     <button @click="viewDocument(doc); open = false" 
-                                                            class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                            class="w-full text-left px-4 py-2 text-sm theme-text-primary theme-hover">
                                                         <i class="fas fa-eye mr-2"></i>View Details
                                                     </button>
                                                     <button @click="toggleDocumentStatus(doc); open = false" 
-                                                            class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                            class="w-full text-left px-4 py-2 text-sm theme-text-primary theme-hover">
                                                         <i :class="doc.is_enabled ? 'fas fa-eye-slash' : 'fas fa-eye'" class="mr-2"></i>
                                                         <span x-text="doc.is_enabled ? 'Disable for Chat' : 'Enable for Chat'"></span>
                                                     </button>
                                                     <button @click="deleteDocument(doc); open = false" 
-                                                            class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                                            class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
                                                         <i class="fas fa-trash mr-2"></i>Delete
                                                     </button>
                                                 </div>
@@ -223,7 +226,7 @@
                 <!-- List View -->
                 <div x-show="!isLoading && documents.length > 0 && viewMode === 'list'" class="space-y-3">
                     <template x-for="doc in documents" :key="doc.id">
-                        <div class="bg-white rounded-2xl border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-300 p-4">
+                        <div class="theme-card rounded-2xl theme-hover transition-all duration-300 p-4">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center flex-1">
                                     <div class="w-10 h-10 rounded-xl flex items-center justify-center mr-4"
@@ -231,9 +234,9 @@
                                         <i :class="getFileTypeIcon(doc.file_type)" class="text-lg"></i>
                                     </div>
                                     <div class="flex-1">
-                                        <h4 class="font-semibold text-gray-900" x-text="doc.title"></h4>
-                                        <p class="text-sm text-gray-600" x-text="doc.description || 'No description'"></p>
-                                        <div class="flex items-center space-x-4 text-xs text-gray-500 mt-1">
+                                        <h4 class="font-semibold theme-text-primary" x-text="doc.title"></h4>
+                                        <p class="text-sm theme-text-secondary" x-text="doc.description || 'No description'"></p>
+                                        <div class="flex items-center space-x-4 text-xs theme-text-tertiary mt-1">
                                             <span x-text="formatFileSize(doc.file_size)"></span>
                                             <span x-show="doc.page_count" x-text="doc.page_count + ' pages'"></span>
                                             <span x-text="formatDate(doc.uploaded_at)"></span>
@@ -242,7 +245,7 @@
                                 </div>
                                 <div class="flex items-center space-x-3">
                                     <span x-show="doc.is_enabled" 
-                                          class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                          class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium theme-status-success">
                                         Chat Enabled
                                     </span>
                                     <span :class="getStatusClass(doc.status)" 
@@ -250,18 +253,18 @@
                                         <span x-text="doc.status"></span>
                                     </span>
                                     <div class="relative" x-data="{ open: false }">
-                                        <button @click="open = !open" class="p-2 text-gray-400 hover:text-gray-600">
+                                        <button @click="open = !open" class="p-2 theme-text-tertiary hover:theme-text-secondary">
                                             <i class="fas fa-ellipsis-v"></i>
                                         </button>
                                         <div x-show="open" @click.away="open = false" 
-                                             class="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 z-10">
+                                             class="absolute right-0 mt-2 w-48 theme-dropdown rounded-2xl z-10">
                                             <div class="py-2">
                                                 <button @click="viewDocument(doc); open = false" 
-                                                        class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                        class="w-full text-left px-4 py-2 text-sm theme-text-primary theme-hover">
                                                     <i class="fas fa-eye mr-2"></i>View Details
                                                 </button>
                                                 <button @click="toggleDocumentStatus(doc); open = false" 
-                                                        class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                        class="w-full text-left px-4 py-2 text-sm theme-text-primary theme-hover">
                                                     <i :class="doc.is_enabled ? 'fas fa-eye-slash' : 'fas fa-eye'" class="mr-2"></i>
                                                     <span x-text="doc.is_enabled ? 'Disable for Chat' : 'Enable for Chat'"></span>
                                                 </button>
@@ -325,17 +328,17 @@
              x-transition:leave="transition ease-in duration-200"
              x-transition:leave-start="opacity-100 scale-100"
              x-transition:leave-end="opacity-0 scale-95"
-             class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6">
+             class="card rounded-3xl shadow-2xl max-w-md w-full p-6">
             <div class="flex items-center justify-between mb-6">
-                <h3 class="text-xl font-semibold text-gray-900">Upload Document</h3>
-                <button @click="showUploadModal = false" class="text-gray-400 hover:text-gray-600">
+                <h3 class="text-xl font-semibold text-primary">Upload Document</h3>
+                <button @click="showUploadModal = false" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
                     <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
 
             <form @submit.prevent="uploadDocument()" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Twin Version</label>
+                    <label class="block text-sm font-medium text-secondary mb-2">Twin Version</label>
                     <select x-model="uploadForm.twin_version_id" required
                             class="w-full border border-gray-300 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
                         <option value="">Select a twin version</option>

@@ -39,6 +39,9 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'digital_twin_app.middleware.SessionTrackingMiddleware',
+    'digital_twin_app.middleware.AuthenticationMiddleware',  # Re-enabled with better logic
+    'digital_twin_app.middleware.TokenTrackingMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]

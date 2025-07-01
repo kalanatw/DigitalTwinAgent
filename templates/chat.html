@@ -1,31 +1,35 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<!-- Custom CSS for iOS 17 styling and animations -->
+<!-- Include centralized theme configuration -->
+{% include 'theme_config.html' %}
+
+<!-- Custom CSS for theme-aware styling -->
 <style>
-    /* Enhanced iOS 17 styling */
+    /* Theme-aware glass morphism */
     .glass-morphism {
-        background: rgba(255, 255, 255, 0.85);
+        background: var(--bg-glass-strong);
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        border: 1px solid var(--border-glass);
     }
     
     .chat-dropdown {
-        background: rgba(255, 255, 255, 0.95);
+        background: var(--bg-primary);
         backdrop-filter: blur(25px);
         -webkit-backdrop-filter: blur(25px);
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.2);
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--border-primary);
     }
     
     .button-ios {
         transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        box-shadow: 0 4px 15px 0 rgba(31, 38, 135, 0.1);
+        box-shadow: var(--shadow-sm);
     }
     
     .button-ios:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 25px 0 rgba(31, 38, 135, 0.2);
+        box-shadow: var(--shadow-md);
     }
     
     .button-ios:active {
@@ -35,7 +39,7 @@
     
     .chat-container {
         scrollbar-width: thin;
-        scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+        scrollbar-color: var(--border-secondary) transparent;
     }
     
     .chat-container::-webkit-scrollbar {
@@ -47,12 +51,29 @@
     }
     
     .chat-container::-webkit-scrollbar-thumb {
-        background-color: rgba(156, 163, 175, 0.3);
-        border-radius: 20px;
+        background-color: var(--border-secondary);
+        border-radius: 3px;
     }
     
     .chat-container::-webkit-scrollbar-thumb:hover {
-        background-color: rgba(156, 163, 175, 0.5);
+        background-color: var(--text-tertiary);
+    }
+    
+    /* Theme-aware message styles */
+    .message-user {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: var(--text-inverse);
+    }
+    
+    .message-assistant {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-primary);
+    }
+    
+    /* Theme-aware background */
+    .chat-bg {
+        background: var(--bg-secondary);
     }
     
     /* Refined typing indicator */
@@ -65,7 +86,7 @@
     .typing-indicator span {
         height: 8px;
         width: 8px;
-        background: #6B7280;
+        background: var(--text-tertiary);
         border-radius: 50%;
         animation: typing 1.4s infinite ease-in-out;
     }
@@ -239,12 +260,12 @@
     }
 </style>
 
-<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 w-full" x-data="chatApp()">
+<div class="min-h-screen chat-bg w-full" x-data="chatApp()">
     <!-- Main Chat Container -->
     <div class="w-full px-4 py-6">
         
-        <!-- Chat Container with Enhanced iOS 17 Design -->
-        <div class="glass-morphism rounded-3xl shadow-2xl flex flex-col border border-white/20 overflow-hidden w-full max-w-none mx-auto" style="height: calc(100vh - 200px); min-height: 600px;">
+        <!-- Chat Container with Theme-aware Design -->
+        <div class="glass-morphism rounded-3xl shadow-2xl flex flex-col overflow-hidden w-full max-w-none mx-auto" style="height: calc(100vh - 200px); min-height: 600px;">
             <!-- Messages Area with Enhanced Styling -->
             <div class="flex-1 overflow-y-auto p-6 chat-container" x-ref="chatContainer">
                 <!-- Welcome Message for Empty State -->
@@ -252,12 +273,12 @@
                     <div class="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
                         <i class="fas fa-robot text-white text-2xl"></i>
                     </div>
-                    <h3 class="text-xl font-semibold text-gray-900 mb-2">Welcome to Digital Twin Assistant</h3>
-                    <p class="text-gray-600 mb-6">I can help you with sensor data, system status, and document queries.</p>
+                    <h3 class="text-xl font-semibold text-primary mb-2">Welcome to Digital Twin Assistant</h3>
+                    <p class="text-secondary mb-6">I can help you with sensor data, system status, and document queries.</p>
                     <div class="flex flex-wrap justify-center gap-2">
-                        <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">Sensor Data</span>
-                        <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm">System Status</span>
-                        <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">Document Search</span>
+                        <span class="px-3 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full text-sm border border-blue-200 dark:border-blue-800">Sensor Data</span>
+                        <span class="px-3 py-1 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-full text-sm border border-purple-200 dark:border-purple-800">System Status</span>
+                        <span class="px-3 py-1 bg-green-500/10 text-green-600 dark:text-green-400 rounded-full text-sm border border-green-200 dark:border-green-800">Document Search</span>
                     </div>
                 </div>
 
@@ -266,8 +287,8 @@
                     <div class="mb-4 md:mb-6" :class="message.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
                         <div class="max-w-[85%] md:max-w-4xl lg:max-w-5xl"
                              :class="message.role === 'user' 
-                                     ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-3xl rounded-br-xl shadow-lg' 
-                                     : 'bg-white/90 text-gray-800 rounded-3xl rounded-bl-xl shadow-lg border border-gray-100'">
+                                     ? 'message-user rounded-3xl rounded-br-xl shadow-lg' 
+                                     : 'message-assistant rounded-3xl rounded-bl-xl shadow-lg'">
                             <div class="px-4 md:px-6 py-3 md:py-4">
                                 <div class="flex items-start gap-3">
                                     <!-- Assistant Avatar -->

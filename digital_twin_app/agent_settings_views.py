@@ -614,8 +614,40 @@ def current_agent(request):
     """Get the currently active agent for the user"""
     
     try:
-        # Use a default agent instead of looking up user-specific agent
-        # Default to system digital assets manager
+        # Get the authenticated user
+        if request.user.is_authenticated:
+            user = request.user
+        else:
+            user, _ = User.objects.get_or_create(username='default_user')
+        
+        # First check if there's a cached active agent (for system agents)
+        cached_agent = cache.get(f'active_agent_{user.id}')
+        if cached_agent:
+            # Return cached system agent
+            active_agent = {
+                'type': cached_agent.get('type', 'system'),
+                'agent_id': cached_agent.get('agent_id'),
+                'name': cached_agent.get('name')
+            }
+            return JsonResponse({'agent': active_agent})
+        
+        # Check for user's default agent in database (for custom agents)
+        try:
+            default_agent_config = AgentConfiguration.objects.get(
+                user=user,
+                is_default=True,
+                is_active=True
+            )
+            active_agent = {
+                'type': 'database',
+                'agent_id': str(default_agent_config.id),
+                'name': default_agent_config.name
+            }
+            return JsonResponse({'agent': active_agent})
+        except AgentConfiguration.DoesNotExist:
+            pass
+        
+        # If no active agent found, return default system agent
         active_agent = {
             'type': 'system',
             'agent_id': 'digital_assets_manager',

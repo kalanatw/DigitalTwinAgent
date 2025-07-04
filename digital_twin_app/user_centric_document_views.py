@@ -93,7 +93,7 @@ def validate_document_access(user, document_id, require_owner=False):
             document = Document.objects.get(
                 Q(id=document_id)
                 & (
-                    Q(user=user)
+                    Q(uploaded_by=user)
                     | Q(  # User uploaded the document
                         twin_version__user=user
                     )  # User owns the twin version
@@ -104,7 +104,7 @@ def validate_document_access(user, document_id, require_owner=False):
             document = Document.objects.get(
                 Q(id=document_id)
                 & (
-                    Q(user=user)
+                    Q(uploaded_by=user)
                     | Q(twin_version__user=user)  # User uploaded the document
                     | Q(twin_version__is_shared=True)  # User owns twin version
                     | Q(  # Public twin version
@@ -463,7 +463,7 @@ def document_list_view(request):
             # Serialize documents
             document_data = []
             for doc in page_obj:
-                is_owner = doc.user == request.user
+                is_owner = doc.uploaded_by == request.user
                 document_data.append(
                     {
                         "id": str(doc.id),
@@ -481,7 +481,7 @@ def document_list_view(request):
                         "owner": (
                             "you"
                             if is_owner
-                            else (doc.user.username if doc.user else "Unknown")
+                            else (doc.uploaded_by.username if doc.uploaded_by else "Unknown")
                         ),
                     }
                 )
@@ -908,7 +908,7 @@ class DocumentSearchView(View):
             processed_results = []
             for result in results:
                 doc = result["document"]
-                is_owner = doc.user == request.user
+                is_owner = doc.uploaded_by == request.user
 
                 processed_results.append(
                     {
@@ -924,7 +924,7 @@ class DocumentSearchView(View):
                         "owner": (
                             "you"
                             if is_owner
-                            else (doc.user.username if doc.user else "Unknown")
+                            else (doc.uploaded_by.username if doc.uploaded_by else "Unknown")
                         ),
                     }
                 )

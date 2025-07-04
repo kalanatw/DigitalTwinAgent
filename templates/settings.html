@@ -30,17 +30,22 @@
     </div>
 
     <!-- Active Agent Section -->
-    <div class="glass rounded-2xl p-6 mb-6" x-show="currentAgent">
+    <div class="glass rounded-2xl p-6 mb-6">
         <h3 class="text-xl font-semibold text-white mb-4">Currently Active Agent</h3>
         <div class="bg-white/10 rounded-xl p-4 border border-white/20">
             <div class="flex items-center justify-between">
                 <div>
-                    <h4 class="text-white font-medium" x-text="currentAgent?.name"></h4>
-                    <p class="text-white/70 text-sm" x-text="currentAgent?.description"></p>
-                    <div class="flex items-center gap-4 mt-2 text-xs text-white/60">
-                        <span><i class="fas fa-cog mr-1"></i><span x-text="currentAgent?.model"></span></span>
-                        <span><i class="fas fa-thermometer-half mr-1"></i>Temp: <span x-text="currentAgent?.temperature"></span></span>
-                        <span><i class="fas fa-clock mr-1"></i>Max: <span x-text="currentAgent?.max_turns"></span> turns</span>
+                    <h4 class="text-white font-medium" x-text="currentAgent?.name || 'No agent selected'"></h4>
+                    <p class="text-white/70 text-sm" x-text="currentAgent?.description || 'Please select an agent to activate'"></p>
+                    <div class="flex items-center gap-4 mt-2 text-xs text-white/60" x-show="currentAgent">
+                        <span><i class="fas fa-cog mr-1"></i><span x-text="currentAgent?.model || 'N/A'"></span></span>
+                        <span><i class="fas fa-thermometer-half mr-1"></i>Temp: <span x-text="currentAgent?.temperature || 'N/A'"></span></span>
+                        <span><i class="fas fa-clock mr-1"></i>Max: <span x-text="currentAgent?.max_turns || 'N/A'"></span> turns</span>
+                    </div>
+                    <!-- Debug info (remove in production) -->
+                    <div class="mt-2 text-xs text-yellow-300" x-show="currentAgent">
+                        ID: <span x-text="currentAgent?.id"></span> | 
+                        Updated: <span x-text="new Date().toLocaleTimeString()"></span>
                     </div>
                 </div>
                 <button @click="switchAgent()" 
@@ -615,13 +620,20 @@ function agentSettingsApp() {
 
         async loadCurrentAgent() {
             try {
+                console.log('Loading current agent from API...');
                 const response = await fetch('/api/agents/current/');
                 if (response.ok) {
                     const data = await response.json();
-                    this.currentAgent = data.agent;
+                    console.log('API response for current agent:', data);
+                    this.currentAgent = data.agent ? { ...data.agent } : null;
+                    console.log('Current agent state updated:', this.currentAgent);
+                } else {
+                    console.warn('Failed to load current agent:', response.status);
+                    this.currentAgent = null;
                 }
             } catch (error) {
                 console.error('Error loading current agent:', error);
+                this.currentAgent = null;
             }
         },
 
@@ -810,8 +822,17 @@ function agentSettingsApp() {
                 });
                 
                 if (response.ok) {
-                    this.currentAgent = agent;
+                    // Update the currentAgent state immediately
+                    this.currentAgent = { ...agent };
+                    console.log('Agent activated, current agent updated:', this.currentAgent);
                     this.showNotification(`Activated "${agent.name}"`, 'success');
+                    
+                    // Also reload from API to ensure consistency
+                    await this.loadCurrentAgent();
+                    console.log('Current agent reloaded from API:', this.currentAgent);
+                    
+                    // Force UI refresh
+                    this.refreshCurrentAgentDisplay();
                 } else {
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.error || `Failed to activate agent: ${response.status}`);
@@ -1004,7 +1025,14 @@ function agentSettingsApp() {
                 return this.csrfToken;
             }
             return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
-        }
+        },
+
+        refreshCurrentAgentDisplay() {
+            // Force Alpine.js reactivity by updating timestamp
+            if (this.currentAgent) {
+                this.currentAgent = { ...this.currentAgent, _updated: Date.now() };
+            }
+        },
     }
 }
 </script>

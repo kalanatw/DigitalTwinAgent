@@ -37,7 +37,18 @@ python manage.py createsuperuser || echo "Skipped superuser creation"
 # Create logs directory
 mkdir -p logs
 
-echo "✅ Setup complete!"
+echo "✅ Base setup complete!"
+
+# Configure Google OAuth (if config file exists)
+if [ -f google_oauth_config.json ]; then
+    echo "🔐 Setting up Google OAuth..."
+    python setup_google_oauth.py
+else
+    echo "⚠️ No google_oauth_config.json found. Skipping Google OAuth setup."
+    echo "To enable Google login, create this file with your OAuth credentials."
+    echo "See GOOGLE_OAUTH_README.md for details."
+fi
+
 echo ""
 echo "📋 Next steps:"
 echo "1. Edit .env file with your OpenAI API key"
@@ -47,4 +58,8 @@ echo ""
 echo "🌐 Application will be available at:"
 echo "   - Main app: http://localhost:8000/"
 echo "   - FastAPI docs: http://localhost:8000/api/docs"
-echo "   - Django admin: http://localhost:8000/django/admin/"
+echo "   - Django admin: http://localhost:8000/admin/"
+echo ""
+echo "🔑 Login options:"
+echo "   - Default user: username 'admin', password 'admin'"
+echo "   - Google OAuth (if configured)"

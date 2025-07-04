@@ -907,9 +907,34 @@ from rest_framework.permissions import AllowAny
 @permission_classes([AllowAny])
 @csrf_exempt
 def login_view(request):
-    """Login endpoint with hardcoded credentials for development."""
+    """Login endpoint with hardcoded credentials for development and OAuth support."""
     username = request.data.get('username')
     password = request.data.get('password')
+    
+    # Check if user is already authenticated through social auth
+    if request.user.is_authenticated:
+        # User is already authenticated via social login
+        if getattr(request.user, 'socialaccount_set', None) and request.user.socialaccount_set.exists():
+            # Update user profile last login
+            from .models import UserProfile
+            profile, created = UserProfile.objects.get_or_create(user=request.user)
+            profile.last_login = timezone.now()
+            profile.save()
+            
+            # Set session expiry (24 hours)
+            request.session.set_expiry(86400)
+            
+            logger.info(f"User {request.user.username} already authenticated via social login")
+            
+            return JsonResponse({
+                'success': True, 
+                'message': 'Login successful',
+                'user': {
+                    'username': request.user.username,
+                    'email': request.user.email,
+                    'is_staff': request.user.is_staff
+                }
+            })
     
     # Support multiple hardcoded credentials
     valid_credentials = [
@@ -982,6 +1007,7 @@ def logout_view(request):
     """Logout endpoint with session cleanup."""
     if request.user.is_authenticated:
         username = request.user.username
+        is_social = getattr(request.user, 'socialaccount_set', None) and request.user.socialaccount_set.exists()
         
         # Clear any agent sessions for this user
         AgentSession.objects.filter(user=request.user).update(is_active=False)
@@ -989,21 +1015,11 @@ def logout_view(request):
         # Logout user
         logout(request)
         
-        # Clear session data
-        request.session.flush()
+        logger.info(f"User {username} logged out successfully" + (" (social login)" if is_social else ""))
         
-        logger.info(f"User {username} logged out successfully from {request.META.get('REMOTE_ADDR')}")
-        
-        return JsonResponse({
-            'success': True, 
-            'message': 'Logged out successfully',
-            'redirect': '/login/'
-        })
-    else:
-        return JsonResponse({
-            'success': False, 
-            'message': 'No active session found'
-        }, status=400)
+        return JsonResponse({'success': True, 'message': 'Logout successful'})
+    
+    return JsonResponse({'success': False, 'message': 'No active session'}, status=400)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])

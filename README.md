@@ -11,6 +11,7 @@ A comprehensive Django/FastAPI application that implements an agentic AI workflo
 - **Dual API**: Both Django REST Framework and FastAPI endpoints
 - **Modern UI**: Responsive web interface with real-time chat functionality
 - **Comprehensive Logging**: Detailed logging at each step of agent execution
+- **Google OAuth Integration**: Secure authentication with Google accounts
 
 ## 🏗️ Architecture
 
@@ -33,6 +34,7 @@ A comprehensive Django/FastAPI application that implements an agentic AI workflo
 - Python 3.8+
 - Redis server
 - OpenAI API key
+- Google OAuth credentials (optional, for Google login)
 
 ## 🛠️ Installation
 
@@ -308,3 +310,24 @@ This project is licensed under the MIT License.
 - [Django Documentation](https://docs.djangoproject.com/)
 - [FastAPI Documentation](https://fastapi.tiangolo.com/)
 - [Redis Documentation](https://redis.io/documentation)
+
+## 🔐 Google OAuth Setup
+
+This application supports authentication via Google OAuth. To enable it:
+
+1. **Create Google OAuth credentials**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a project and enable the Google OAuth API
+   - Create OAuth client credentials with this redirect URI:
+     `http://localhost:8000/accounts/google/login/callback/`
+
+2. **Configure the application**:
+   - Save your credentials in `google_oauth_config.json` (see `GOOGLE_OAUTH_README.md` for details)
+   - Run the setup script: `python setup_google_oauth.py`
+   - Run migrations: `python manage.py migrate`
+
+3. **Try it out**:
+   - Visit the login page at `/login/`
+   - Click "Continue with Google"
+
+For detailed instructions, see `GOOGLE_OAUTH_README.md`

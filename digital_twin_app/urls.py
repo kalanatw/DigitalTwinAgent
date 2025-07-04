@@ -8,6 +8,8 @@ from . import document_views
 from . import integrated_email_views
 from . import agent_settings_views
 from . import csv_views
+from . import google_auth_views
+from . import auth_views
 
 urlpatterns = [
     # API endpoints first (more specific)
@@ -22,6 +24,11 @@ urlpatterns = [
     path('api/auth/profile/', agent_settings_views.user_profile, name='user_profile'),
     path('api/auth/signup/', agent_settings_views.signup_view, name='signup'),
     path('api/auth/update-tokens/', agent_settings_views.update_token_usage, name='update_token_usage'),
+    
+    # Google OAuth endpoints
+    path('api/auth/google/login/', google_auth_views.google_login, name='google_login'),
+    path('api/auth/google/callback/', google_auth_views.google_callback, name='google_callback'),
+    path('accounts/google/login/callback/', google_auth_views.google_callback, name='google_oauth_callback'),
     
     # Chat History endpoints
     path('api/chat/history/<str:session_id>/', agent_settings_views.get_chat_history, name='get_chat_history'),
@@ -86,12 +93,12 @@ urlpatterns = [
     path('api/agents/create-instance/', agent_settings_views.create_agent_instance, name='create_agent_instance'),
     
     # Main template views
-    path('', TemplateView.as_view(template_name='chat.html'), name='home'),
+    path('', auth_views.HomeView.as_view(), name='home'),
     path('login/', TemplateView.as_view(template_name='login.html'), name='login_page'),
-    path('profile/', TemplateView.as_view(template_name='profile.html'), name='profile_page'),
-    path('about/', TemplateView.as_view(template_name='about.html'), name='about'),
-    path('settings/', TemplateView.as_view(template_name='settings.html'), name='settings'),
-    path('dms/', TemplateView.as_view(template_name='dms.html'), name='dms'),
-    path('email/', TemplateView.as_view(template_name='email_automation.html'), name='email_automation'),
-    path('csv/', TemplateView.as_view(template_name='csv_manager.html'), name='csv_manager'),
+    path('profile/', auth_views.ProfileView.as_view(), name='profile_page'),
+    path('about/', auth_views.AuthRequiredTemplateView.as_view(template_name='about.html'), name='about'),
+    path('settings/', auth_views.SettingsView.as_view(), name='settings'),
+    path('dms/', auth_views.DocumentView.as_view(), name='dms'),
+    path('email/', auth_views.EmailView.as_view(), name='email_automation'),
+    path('csv/', auth_views.CSVView.as_view(), name='csv_manager'),
 ]

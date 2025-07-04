@@ -32,6 +32,20 @@
                         </div>
                         <button type="submit" class="ios-button">Login</button>
                     </form>
+                    
+                    <div class="ios-divider">
+                        <span>OR</span>
+                    </div>
+                    
+                    <a href="{% url 'google_login' %}" class="ios-social-button ios-google-button">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                        </svg>
+                        <span>Continue with Google</span>
+                    </a>
                 </div>
             </div>
         </div>
@@ -178,6 +192,60 @@ body {
     color: var(--ios-primary);
 }
 
+/* Social Login Styles */
+.ios-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 24px 0;
+}
+
+.ios-divider::before,
+.ios-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid rgba(142, 142, 147, 0.3);
+}
+
+.ios-divider span {
+    padding: 0 16px;
+    color: var(--ios-label);
+    font-size: 14px;
+}
+
+.ios-social-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    height: 50px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    margin-top: 12px;
+}
+
+.ios-google-button {
+    background-color: white;
+    color: #444;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.ios-google-button:hover {
+    background-color: #f5f5f5;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.ios-google-button:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
 /* Animations and Effects */
 .ios-fade-in {
     animation: fadeIn 0.6s ease-in-out;
@@ -198,167 +266,74 @@ body {
     30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
     40%, 60% { transform: translate3d(4px, 0, 0); }
 }
-
-.ios-button-loading {
-    background-color: var(--ios-background);
-    color: var(--ios-label);
-    position: relative;
-}
-
-.ios-button-success {
-    background-color: var(--ios-success);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.ios-button-success svg {
-    margin-right: -4px;
-}
-
-/* Focus and hover states for better accessibility */
-.ios-input-group:focus-within .ios-label {
-    color: var(--ios-primary);
-}
-
-.ios-input:hover {
-    background-color: rgba(142, 142, 147, 0.15);
-}
-
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --ios-background: #1c1c1e;
-        --ios-card-bg: #2c2c2e;
-        --ios-text: #ffffff;
-        --ios-label: #8e8e93;
-        --ios-shadow: rgba(0, 0, 0, 0.2) 0px 4px 24px;
-    }
-
-    .ios-input {
-        background-color: rgba(142, 142, 147, 0.18);
-    }
-
-    .ios-input:focus {
-        background-color: rgba(142, 142, 147, 0.24);
-    }
-    
-    .ios-button-loading {
-        background-color: rgba(142, 142, 147, 0.24);
-    }
-}
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Add animation effects on page load
-    document.querySelector('.ios-card').classList.add('ios-fade-in');
+    const loginForm = document.getElementById('loginForm');
+    const loginAlert = document.getElementById('loginAlert');
+    const togglePassword = document.getElementById('togglePassword');
+    const passwordField = document.getElementById('password');
     
-    // Check if user is already logged in
-    fetch('/api/auth/user/')
-        .then(response => response.json())
-        .then(data => {
-            if (data.isAuthenticated) {
-                window.location.href = '/';
-            }
-        });
-
-    // Handle password visibility toggle
-    const togglePasswordBtn = document.getElementById('togglePassword');
-    const passwordInput = document.getElementById('password');
-    
-    togglePasswordBtn.addEventListener('click', function() {
-        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-        passwordInput.setAttribute('type', type);
+    // Toggle password visibility
+    togglePassword.addEventListener('click', function () {
+        const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordField.setAttribute('type', type);
         
-        // Toggle icon between eye and eye-slash
+        // Toggle the eye icon
+        const eyeIcon = togglePassword.querySelector('svg');
         if (type === 'text') {
-            this.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-eye-slash" viewBox="0 0 16 16">
-                    <path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7.028 7.028 0 0 0-2.79.588l.77.771A5.944 5.944 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.134 13.134 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755-.165.165-.337.328-.517.486l.708.709z"/>
-                    <path d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829l.822.822zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829z"/>
-                    <path d="M3.35 5.47c-.18.16-.353.322-.518.487A13.134 13.134 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7.029 7.029 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12-.708.708z"/>
-                </svg>
-            `;
+            eyeIcon.innerHTML = '<path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/><path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/><line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" stroke-width="2"/>';
         } else {
-            this.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-eye" viewBox="0 0 16 16">
-                    <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
-                    <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
-                </svg>
-            `;
+            eyeIcon.innerHTML = '<path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/><path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>';
         }
     });
-
-    // Handle login form submission with haptic feedback animation
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
+    
+    // Handle login form submission
+    loginForm.addEventListener('submit', function(e) {
         e.preventDefault();
         
         const username = document.getElementById('username').value;
         const password = document.getElementById('password').value;
-        const loginAlert = document.getElementById('loginAlert');
-        const loginButton = document.querySelector('.ios-button');
         
-        // Add loading effect to button
-        loginButton.classList.add('ios-button-loading');
-        loginButton.textContent = 'Logging in...';
+        // Get CSRF token
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+            document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
         
-        // Hide any previous error
-        loginAlert.classList.add('d-none');
-        
-        // Get CSRF token first
-        fetch('/api/auth/csrf-token/')
-            .then(response => response.json())
-            .then(data => {
-                // Perform login
-                fetch('/api/auth/login/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': data.csrfToken
-                    },
-                    body: JSON.stringify({ username, password })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Success animation
-                        loginButton.classList.remove('ios-button-loading');
-                        loginButton.classList.add('ios-button-success');
-                        loginButton.innerHTML = `
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-check-lg" viewBox="0 0 16 16">
-                                <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z"/>
-                            </svg> Success!
-                        `;
-                        
-                        // Redirect after animation
-                        setTimeout(() => {
-                            window.location.href = '/';
-                        }, 800);
-                    } else {
-                        // Error animation
-                        loginButton.classList.remove('ios-button-loading');
-                        loginButton.textContent = 'Login';
-                        loginAlert.textContent = data.message;
-                        loginAlert.classList.remove('d-none');
-                        
-                        // Shake form to indicate error
-                        const form = document.getElementById('loginForm');
-                        form.classList.add('ios-shake');
-                        setTimeout(() => {
-                            form.classList.remove('ios-shake');
-                        }, 600);
-                    }
-                })
-                .catch(error => {
-                    loginButton.classList.remove('ios-button-loading');
-                    loginButton.textContent = 'Login';
-                    loginAlert.textContent = "Connection error. Please try again.";
-                    loginAlert.classList.remove('d-none');
-                });
-            });
+        fetch('/api/auth/login/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ username, password })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = '/';
+            } else {
+                showLoginError(data.message || 'Login failed');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showLoginError('An error occurred. Please try again.');
+        });
     });
+    
+    function showLoginError(message) {
+        loginAlert.textContent = message;
+        loginAlert.classList.remove('d-none');
+        loginAlert.classList.add('ios-fade-in');
+        loginForm.classList.add('ios-shake');
+        
+        // Remove animation classes after animation completes
+        setTimeout(() => {
+            loginForm.classList.remove('ios-shake');
+        }, 600);
+    }
 });
 </script>
 {% endblock %}

@@ -1,6 +1,7 @@
 """
 Django settings for digital_twin project.
 """
+import json
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -27,9 +28,16 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',  # Required by django-allauth
     'rest_framework',
     'corsheaders',
     'digital_twin_app',
+    
+    # Django AllAuth
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
 ]
 
 MIDDLEWARE = [
@@ -39,6 +47,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'allauth.account.middleware.AccountMiddleware',  # Required by django-allauth
     'digital_twin_app.middleware.SessionTrackingMiddleware',
     'digital_twin_app.middleware.AuthenticationMiddleware',  # Re-enabled with better logic
     'digital_twin_app.middleware.TokenTrackingMiddleware',
@@ -56,7 +65,7 @@ TEMPLATES = [
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
-                'django.template.context_processors.request',
+                'django.template.context_processors.request',  # Required by django-allauth
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
@@ -148,6 +157,50 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+
+# Django AllAuth Configuration
+SITE_ID = 1
+
+# Load Google OAuth config from file
+GOOGLE_OAUTH_CONFIG_FILE = os.path.join(BASE_DIR, 'google_oauth_config.json')
+GOOGLE_OAUTH_CONFIG = {}
+if os.path.exists(GOOGLE_OAUTH_CONFIG_FILE):
+    with open(GOOGLE_OAUTH_CONFIG_FILE, 'r') as f:
+        GOOGLE_OAUTH_CONFIG = json.load(f)
+
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'APP': {
+            'client_id': GOOGLE_OAUTH_CONFIG.get('web', {}).get('client_id', ''),
+            'secret': GOOGLE_OAUTH_CONFIG.get('web', {}).get('client_secret', ''),
+        },
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+    }
+}
+
+AUTHENTICATION_BACKENDS = [
+    # Needed to login by username in Django admin
+    'django.contrib.auth.backends.ModelBackend',
+    
+    # django-allauth specific authentication methods
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+# AllAuth settings
+ACCOUNT_EMAIL_VERIFICATION = 'none'  # Can be 'mandatory', 'optional', or 'none'
+ACCOUNT_LOGIN_METHODS = {'email', 'username'}
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/login/'
+LOGIN_URL = '/login/'
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'http' if DEBUG else 'https'
+
+# Custom AllAuth adapters
+ACCOUNT_ADAPTER = 'digital_twin_app.adapters.DigitalTwinAccountAdapter'
+SOCIALACCOUNT_ADAPTER = 'digital_twin_app.adapters.DigitalTwinSocialAccountAdapter'
 
 # Logging configuration
 LOGGING = {

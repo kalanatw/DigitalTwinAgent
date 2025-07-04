@@ -4,6 +4,8 @@ fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 django-cors-headers>=4.0.0
 djangorestframework>=3.14.0
+django-allauth>=0.57.0
+requests>=2.30.0
 
 # OpenAI Agents SDK and Embeddings
 openai-agents>=0.0.16

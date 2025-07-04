@@ -51,6 +51,7 @@ MIDDLEWARE = [
     'digital_twin_app.middleware.SessionTrackingMiddleware',
     'digital_twin_app.middleware.AuthenticationMiddleware',  # Re-enabled with better logic
     'digital_twin_app.middleware.TokenTrackingMiddleware',
+    'digital_twin_app.resource_access_middleware.ResourceAccessMiddleware',  # For resource access control
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -244,3 +245,17 @@ LOGGING = {
         'level': 'WARNING',
     },
 }
+
+# CSRF settings
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+# Add CSRF cookie settings for SPA
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
+CSRF_USE_SESSIONS = False
+CSRF_COOKIE_SAMESITE = 'Lax'

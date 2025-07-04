@@ -5,11 +5,13 @@ from django.urls import path, include
 from django.views.generic import TemplateView
 from . import views
 from . import document_views
+from . import user_centric_document_views
 from . import integrated_email_views
 from . import agent_settings_views
 from . import csv_views
 from . import google_auth_views
 from . import auth_views
+from . import profile_views
 
 urlpatterns = [
     # API endpoints first (more specific)
@@ -56,15 +58,17 @@ urlpatterns = [
     path('api/email/generate-response/<str:email_id>/', integrated_email_views.generate_email_response, name='gmail_generate_response'),
     path('api/email/create-test-emails/', integrated_email_views.create_test_emails, name='email_create_test'),
     
-    # Twin Version API endpoints
-    path('api/twin-versions/', document_views.TwinVersionListView.as_view(), name='twin_version_list'),
-    path('api/twin-versions/<uuid:version_id>/', document_views.TwinVersionDetailView.as_view(), name='twin_version_detail'),
+    # Twin Version API endpoints (User-Centric)
+    path('api/twin-versions/', user_centric_document_views.twin_version_list_view, name='twin_version_list'),
+    path('api/twin-versions/<uuid:version_id>/', user_centric_document_views.twin_version_detail_view, name='twin_version_detail'),
+    path('api/twin-versions/<uuid:version_id>/share/', user_centric_document_views.TwinVersionShareView.as_view(), name='twin_version_share'),
     
-    # Document API endpoints
-    path('api/documents/', document_views.DocumentListView.as_view(), name='document_list'),
-    path('api/documents/upload/', document_views.DocumentUploadView.as_view(), name='document_upload'),
-    path('api/documents/<uuid:document_id>/', document_views.DocumentDetailView.as_view(), name='document_detail'),
-    path('api/documents/search/', document_views.DocumentSearchView.as_view(), name='document_search'),
+    # Document API endpoints (User-Centric)
+    path('api/documents/', user_centric_document_views.document_list_view, name='document_list'),
+    path('api/documents/upload/', user_centric_document_views.DocumentUploadView.as_view(), name='document_upload'),
+    path('api/documents/<uuid:document_id>/', user_centric_document_views.DocumentDetailView.as_view(), name='document_detail'),
+    path('api/documents/search/', user_centric_document_views.DocumentSearchView.as_view(), name='document_search'),
+    path('api/documents/<uuid:document_id>/share/', user_centric_document_views.DocumentShareView.as_view(), name='document_share'),
     
     # CSV Document API endpoints
     path('api/csv/upload/', csv_views.upload_csv_file, name='csv_upload'),
@@ -92,10 +96,17 @@ urlpatterns = [
     path('api/agents/enhance-prompt/', agent_settings_views.enhance_prompt, name='enhance_prompt'),
     path('api/agents/create-instance/', agent_settings_views.create_agent_instance, name='create_agent_instance'),
     
+    # User Profile endpoints
+    path('api/profile/', profile_views.profile_view, name='profile_view'),
+    path('api/profile/token-usage/', profile_views.api_token_usage, name='api_token_usage'),
+    path('api/profile/resources/', profile_views.api_user_resources, name='api_user_resources'),
+    path('api/profile/shared-resources/', profile_views.api_shared_resources, name='api_shared_resources'),
+    
     # Main template views
     path('', auth_views.HomeView.as_view(), name='home'),
     path('login/', TemplateView.as_view(template_name='login.html'), name='login_page'),
-    path('profile/', auth_views.ProfileView.as_view(), name='profile_page'),
+    path('profile/', profile_views.profile_view, name='profile_page'),
+    path('profile/resources/', profile_views.profile_resources_view, name='profile_resources_page'),
     path('about/', auth_views.AuthRequiredTemplateView.as_view(template_name='about.html'), name='about'),
     path('settings/', auth_views.SettingsView.as_view(), name='settings'),
     path('dms/', auth_views.DocumentView.as_view(), name='dms'),

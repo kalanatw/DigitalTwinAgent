@@ -1,13 +1,25 @@
 """
 Django Models for Digital Twin Application
 """
+import os
+import uuid
+import json
+import logging
+import mimetypes
 from django.db import models
 from django.contrib.auth.models import User
-import uuid
-import os
+from django.utils import timezone
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+logger = logging.getLogger(__name__)
+
+# Helper functions
+def get_document_upload_path(instance, filename):
+    """Generate upload path for document files with user folder."""
+    # Use user ID in path if available
+    user_id = getattr(instance.uploaded_by, 'id', 'shared')
+    return os.path.join('documents', f'user_{user_id}', f"{uuid.uuid4()}_{filename}")
 
 class TwinVersion(models.Model):
     """Model to represent different versions of digital twins."""
@@ -15,14 +27,20 @@ class TwinVersion(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     version = models.CharField(max_length=50, default="1.0")
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='twin_versions')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
+    # New fields for user-centric model
+    is_shared = models.BooleanField(default=False, help_text='Whether this twin version is shared with other users')
     
     class Meta:
         ordering = ['-created_at']
-        unique_together = ['name', 'version']
+        unique_together = ['user', 'name', 'version']  # Make constraint user-specific
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['is_shared']),
+        ]
     
     def __str__(self):
         return f"{self.name} v{self.version}"
@@ -59,12 +77,6 @@ class ChatMessage(models.Model):
         return f"{self.role}: {self.content[:50]}..."
 
 
-def get_document_upload_path(instance, filename):
-    """Generate upload path for documents based on twin version."""
-    twin_version_id = instance.twin_version.id if instance.twin_version else 'default'
-    return f'documents/{twin_version_id}/{filename}'
-
-
 class Document(models.Model):
     """Model to store uploaded documents."""
     DOCUMENT_TYPES = [
@@ -91,10 +103,11 @@ class Document(models.Model):
     file_type = models.CharField(max_length=10, choices=DOCUMENT_TYPES, default='other')
     file_size = models.BigIntegerField(default=0)  # in bytes
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, db_column='user_id')
     uploaded_at = models.DateTimeField(auto_now_add=True)
     processed_at = models.DateTimeField(null=True, blank=True)
     is_enabled = models.BooleanField(default=True)  # For chat enablement
+    is_shared = models.BooleanField(default=False)  # Whether document is shared publicly
     processing_error = models.TextField(blank=True)
     
     # Metadata
@@ -265,7 +278,8 @@ class AgentConfiguration(models.Model):
     # Metadata
     is_active = models.BooleanField(default=True)
     is_default = models.BooleanField(default=False)
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_agents')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_agents')
+    is_shared = models.BooleanField(default=False, help_text='Whether this agent is shared with other users')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -279,7 +293,7 @@ class AgentConfiguration(models.Model):
         # Ensure only one default agent per user
         if self.is_default:
             AgentConfiguration.objects.filter(
-                created_by=self.created_by,
+                user=self.user,
                 is_default=True
             ).exclude(id=self.id).update(is_default=False)
         super().save(*args, **kwargs)
@@ -503,3 +517,88 @@ def save_user_profile(sender, instance, **kwargs):
         instance.profile.save()
     else:
         UserProfile.objects.create(user=instance)
+
+
+class TokenUsage(models.Model):
+    """Model to track token usage across all operations"""
+    RESOURCE_TYPES = [
+        ('agent', 'Agent'),
+        ('document', 'Document'),
+        ('twin_version', 'Twin Version'),
+        ('chat', 'Chat'),
+        ('other', 'Other'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='token_usage')
+    timestamp = models.DateTimeField(auto_now_add=True)
+    tokens_used = models.IntegerField()
+    input_tokens = models.IntegerField(default=0)
+    output_tokens = models.IntegerField(default=0)
+    resource_type = models.CharField(max_length=20, choices=RESOURCE_TYPES)
+    resource_id = models.CharField(max_length=100, null=True, blank=True)
+    operation = models.CharField(max_length=50)
+    
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['user', 'timestamp']),
+            models.Index(fields=['resource_type', 'resource_id']),
+        ]
+
+
+class DocumentUsage(models.Model):
+    """Model to track document usage"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='document_usage')
+    document = models.ForeignKey('Document', on_delete=models.CASCADE, related_name='usage_records')
+    timestamp = models.DateTimeField(auto_now_add=True)
+    operation = models.CharField(max_length=50)  # e.g., "view", "search", "process"
+    tokens_used = models.IntegerField(default=0)
+    
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [models.Index(fields=['user', 'timestamp'])]
+
+
+class AgentUsage(models.Model):
+    """Model to track agent usage"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='agent_usage')
+    agent = models.ForeignKey('AgentConfiguration', on_delete=models.CASCADE, related_name='usage_records')
+    timestamp = models.DateTimeField(auto_now_add=True)
+    operation = models.CharField(max_length=50)  # e.g., "chat", "test", "configure"
+    tokens_used = models.IntegerField(default=0)
+    input_tokens = models.IntegerField(default=0)
+    output_tokens = models.IntegerField(default=0)
+    
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [models.Index(fields=['user', 'timestamp'])]
+
+
+class DocumentShare(models.Model):
+    """Model to track document sharing between users"""
+    document = models.ForeignKey('Document', on_delete=models.CASCADE, related_name='shares')
+    shared_with = models.ForeignKey(User, on_delete=models.CASCADE, related_name='shared_documents')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['document', 'shared_with']
+
+
+class TwinVersionShare(models.Model):
+    """Model to track twin version sharing between users"""
+    twin_version = models.ForeignKey(TwinVersion, on_delete=models.CASCADE, related_name='shares')
+    shared_with = models.ForeignKey(User, on_delete=models.CASCADE, related_name='shared_twin_versions')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['twin_version', 'shared_with']
+
+
+class AgentShare(models.Model):
+    """Model to track agent configuration sharing between users"""
+    agent = models.ForeignKey('AgentConfiguration', on_delete=models.CASCADE, related_name='shares')
+    shared_with = models.ForeignKey(User, on_delete=models.CASCADE, related_name='shared_agents')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['agent', 'shared_with']

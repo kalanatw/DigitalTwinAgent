@@ -27,7 +27,6 @@ def email_template_selector(template_type: str, contact_name: str = "Valued Clie
     try:
         # Get available templates
         available_templates = get_available_templates()
-        print(f"Available templates: {available_templates}")
         
         if template_type not in available_templates:
             error_result = {

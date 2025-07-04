@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}My Resources | Digital Twin{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="ios-card">
+                <div class="ios-card-header">
+                    <h3>{{ user.username }}</h3>
+                    <p class="text-muted">{{ user.email }}</p>
+                </div>
+                <div class="ios-card-body">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'profile_page' %}">Profile</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="{% url 'profile_resources_page' %}">My Resources</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'settings' %}">Settings</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="tab-content">
+                <div class="ios-card mb-4">
+                    <div class="ios-card-header">
+                        <h3>My Resources</h3>
+                    </div>
+                    <div class="ios-card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="stat-card">
+                                    <div class="stat-title">Documents</div>
+                                    <div class="stat-value">{{ own_resources.documents }}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="stat-card">
+                                    <div class="stat-title">Twin Versions</div>
+                                    <div class="stat-value">{{ own_resources.twin_versions }}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="stat-card">
+                                    <div class="stat-title">Agents</div>
+                                    <div class="stat-value">{{ own_resources.agents }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <h5>Resource Management</h5>
+                            <div class="list-group">
+                                <a href="{% url 'dms' %}" class="list-group-item list-group-item-action">
+                                    <i class="fas fa-file-alt me-2"></i> Manage Documents
+                                </a>
+                                <a href="{% url 'csv_manager' %}" class="list-group-item list-group-item-action">
+                                    <i class="fas fa-table me-2"></i> Manage CSV Files
+                                </a>
+                                <a href="{% url 'settings' %}" class="list-group-item list-group-item-action">
+                                    <i class="fas fa-robot me-2"></i> Manage Agents
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="ios-card mb-4">
+                    <div class="ios-card-header">
+                        <h3>Shared Resources</h3>
+                    </div>
+                    <div class="ios-card-body">
+                        <ul class="nav nav-tabs" role="tablist">
+                            <li class="nav-item">
+                                <a class="nav-link active" data-bs-toggle="tab" href="#shared-with-me">Shared With Me</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-bs-toggle="tab" href="#public-resources">Public Resources</a>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content mt-3">
+                            <div id="shared-with-me" class="tab-pane fade show active">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="stat-card">
+                                            <div class="stat-title">Documents</div>
+                                            <div class="stat-value">{{ shared_resources.documents }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="stat-card">
+                                            <div class="stat-title">Twin Versions</div>
+                                            <div class="stat-value">{{ shared_resources.twin_versions }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="stat-card">
+                                            <div class="stat-title">Agents</div>
+                                            <div class="stat-value">{{ shared_resources.agents }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="public-resources" class="tab-pane fade">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="stat-card">
+                                            <div class="stat-title">Documents</div>
+                                            <div class="stat-value">{{ public_resources.documents }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="stat-card">
+                                            <div class="stat-title">Twin Versions</div>
+                                            <div class="stat-value">{{ public_resources.twin_versions }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="stat-card">
+                                            <div class="stat-title">Agents</div>
+                                            <div class="stat-value">{{ public_resources.agents }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

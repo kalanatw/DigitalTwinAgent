@@ -179,15 +179,18 @@ class ApiChatView(View):
                     # Use regular agent instance with user-specific configuration
                     # For testing: use a fallback user ID if not authenticated
                     user_id = request.user.id if request.user.is_authenticated else 1  # Use user ID 1 for testing
-                    agent = await get_agent_instance_async(user_id=user_id)
+                    current_user = request.user if request.user.is_authenticated else None
+                    agent = await get_agent_instance_async(user_id=user_id, user=current_user)
                 
                 # Include document context if twin version is specified
                 if twin_version_id:
                     logger.info(f"🔍 RAG ENABLED: Processing message with documents from twin_version_id: {twin_version_id}")
-                    result = await agent.process_message_with_documents(message, session_id, twin_version_id, user_id)
+                    current_user = request.user if request.user.is_authenticated else None
+                    result = await agent.process_message_with_documents(message, session_id, twin_version_id, user_id, user=current_user)
                 else:
                     logger.info("💬 REGULAR CHAT: Processing message without RAG")
-                    result = await agent.process_message(message, session_id)
+                    current_user = request.user if request.user.is_authenticated else None
+                    result = await agent.process_message(message, session_id, user=current_user)
                 
                 return result
             
@@ -201,14 +204,16 @@ class ApiChatView(View):
                     try:
                         from .agent import get_agent_instance_sync
                         user_id_fallback = request.user.id if request.user.is_authenticated else 1
-                        agent = get_agent_instance_sync(user_id=user_id_fallback)
+                        current_user = request.user if request.user.is_authenticated else None
+                        agent = get_agent_instance_sync(user_id=user_id_fallback, user=current_user)
                         # Process message synchronously - check for twin_version_id for RAG
                         import asyncio
+                        current_user = request.user if request.user.is_authenticated else None
                         if twin_version_id:
                             logger.info(f"🔍 Sync fallback with RAG for twin_version_id: {twin_version_id}")
-                            result = asyncio.run(agent.process_message_with_documents(message, session_id, twin_version_id, user_id_fallback))
+                            result = asyncio.run(agent.process_message_with_documents(message, session_id, twin_version_id, user_id_fallback, user=current_user))
                         else:
-                            result = asyncio.run(agent.process_message(message, session_id))
+                            result = asyncio.run(agent.process_message(message, session_id, user=current_user))
                         logger.info("✅ Successfully processed message with sync fallback")
                     except Exception as sync_e:
                         logger.error(f"❌ Sync fallback also failed: {sync_e}")
@@ -317,13 +322,14 @@ async def chat_endpoint(request: ChatRequest):
         # Get agent instance and process message
         # Note: FastAPI doesn't have user context, so use default agent
         default_user_id = 1  # Use default user for FastAPI calls without authentication
-        agent = await get_agent_instance_async(user_id=default_user_id)
+        agent = await get_agent_instance_async(user_id=default_user_id, user=None)
         
         # Include document context if twin version is specified
+        # For FastAPI without authentication, we'll use None for user
         if request.twin_version_id:
-            result = await agent.process_message_with_documents(request.message, session_id, request.twin_version_id, default_user_id)
+            result = await agent.process_message_with_documents(request.message, session_id, request.twin_version_id, default_user_id, user=None)
         else:
-            result = await agent.process_message(request.message, session_id)
+            result = await agent.process_message(request.message, session_id, user=None)
         
         logger.info(f"FastAPI chat processed for session: {session_id}")
         
@@ -405,8 +411,9 @@ def drf_chat_view(request):
             # Define async function to process message
             async def process_message_async():
                 user_id = request.user.id if request.user.is_authenticated else None
-                agent = await get_agent_instance_async(user_id=user_id)
-                return await agent.process_message(message, session_id)
+                current_user = request.user if request.user.is_authenticated else None
+                agent = await get_agent_instance_async(user_id=user_id, user=current_user)
+                return await agent.process_message(message, session_id, user=current_user)
             
             # Run async function in separate thread
             result = run_async_in_thread(process_message_async)

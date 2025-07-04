@@ -62,26 +62,56 @@
                                 <i class="fas fa-circle"></i> LIVE
                             </span>
                         </h4>
-                        <div class="usage-stats">
-                            <div class="stat-card">
-                                <div class="stat-number" x-text="formatNumber(profileData?.usage_stats?.total_tokens_used || 0)"></div>
-                                <div class="stat-label">Total Tokens Used</div>
-                                <div class="stat-change" x-show="tokenChange !== 0">
-                                    <i class="fas fa-arrow-up" x-show="tokenChange > 0"></i>
-                                    <span x-text="'+' + tokenChange" x-show="tokenChange > 0"></span>
+                        
+                        <!-- Today's Usage Row -->
+                        <div class="usage-section">
+                            <h5 class="usage-title">Today's Usage</h5>
+                            <div class="usage-stats">
+                                <div class="stat-card">
+                                    <div class="stat-number" x-text="formatNumber(profileData?.usage_stats?.today_tokens || 0)"></div>
+                                    <div class="stat-label">Today's Tokens</div>
+                                    <div class="stat-sublabel" x-text="'$' + (profileData?.usage_stats?.estimated_cost_today || 0).toFixed(4)"></div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-number" x-text="formatNumber(profileData?.usage_stats?.today_input_tokens || 0)"></div>
+                                    <div class="stat-label">Input Tokens</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-number" x-text="formatNumber(profileData?.usage_stats?.today_output_tokens || 0)"></div>
+                                    <div class="stat-label">Output Tokens</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-number" x-text="getTokenChange()"></div>
+                                    <div class="stat-label">Recent Change</div>
+                                    <div class="stat-change" x-show="tokenChange !== 0">
+                                        <i class="fas fa-arrow-up text-success" x-show="tokenChange > 0"></i>
+                                        <span x-text="'+' + formatNumber(tokenChange)" x-show="tokenChange > 0" class="text-success"></span>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="stat-card">
-                                <div class="stat-number" x-text="formatNumber(profileData?.usage_stats?.total_input_tokens || 0)"></div>
-                                <div class="stat-label">Input Tokens</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-number" x-text="formatNumber(profileData?.usage_stats?.total_output_tokens || 0)"></div>
-                                <div class="stat-label">Output Tokens</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-number" x-text="(profileData?.usage_stats?.token_usage_percentage || 0).toFixed(1) + '%'"></div>
-                                <div class="stat-label">Monthly Usage</div>
+                        </div>
+                        
+                        <!-- All-Time Usage Row -->
+                        <div class="usage-section">
+                            <h5 class="usage-title">All-Time Usage</h5>
+                            <div class="usage-stats">
+                                <div class="stat-card">
+                                    <div class="stat-number" x-text="formatNumber(profileData?.usage_stats?.total_tokens_used || 0)"></div>
+                                    <div class="stat-label">Total Tokens</div>
+                                    <div class="stat-sublabel" x-text="'~$' + (profileData?.usage_stats?.estimated_cost_total || 0).toFixed(4)"></div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-number" x-text="formatNumber(profileData?.usage_stats?.total_input_tokens || 0)"></div>
+                                    <div class="stat-label">Input Tokens</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-number" x-text="formatNumber(profileData?.usage_stats?.total_output_tokens || 0)"></div>
+                                    <div class="stat-label">Output Tokens</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-number" x-text="(profileData?.usage_stats?.token_usage_percentage || 0).toFixed(1) + '%'"></div>
+                                    <div class="stat-label">Monthly Usage</div>
+                                </div>
                             </div>
                         </div>
                         
@@ -90,11 +120,15 @@
                             <label>Monthly Token Usage</label>
                             <div class="progress-bar">
                                 <div class="progress-fill" 
-                                     :style="'width: ' + Math.min(profileData?.usage_stats?.token_usage_percentage || 0, 100) + '%'"></div>
+                                     :style="'width: ' + Math.min(profileData?.usage_stats?.token_usage_percentage || 0, 100) + '%'"
+                                     :class="getProgressBarClass()"></div>
                             </div>
                             <div class="progress-text">
                                 <span x-text="formatNumber(profileData?.usage_stats?.total_tokens_used || 0)"></span> / 
                                 <span x-text="formatNumber(profileData?.limits?.monthly_token_limit || 0)"></span> tokens
+                                <span class="text-muted ml-2">
+                                    (~$<span x-text="(profileData?.usage_stats?.estimated_cost_total || 0).toFixed(4)"></span>)
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -278,6 +312,19 @@
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 1rem;
     margin-bottom: 1.5rem;
+}
+
+.usage-section {
+    margin-bottom: 1.5rem;
+}
+
+.usage-title {
+    color: var(--ios-text);
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .stat-card {
@@ -676,6 +723,24 @@ function profileData() {
             if (seconds < 60) return 'just now';
             if (minutes < 60) return `${minutes}m ago`;
             return `${Math.floor(minutes / 60)}h ago`;
+        },
+        
+        // Get token change display
+        getTokenChange() {
+            if (this.tokenChange > 0) {
+                return `+${this.formatNumber(this.tokenChange)}`;
+            } else if (this.tokenChange < 0) {
+                return this.formatNumber(this.tokenChange);
+            }
+            return '0';
+        },
+        
+        // Get progress bar class based on usage percentage
+        getProgressBarClass() {
+            const percentage = this.profileData?.usage_stats?.token_usage_percentage || 0;
+            if (percentage >= 90) return 'progress-danger';
+            if (percentage >= 70) return 'progress-warning';
+            return 'progress-success';
         }
     };
 }

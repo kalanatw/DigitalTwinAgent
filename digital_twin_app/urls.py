@@ -99,6 +99,7 @@ urlpatterns = [
     # User Profile endpoints
     path('api/profile/', profile_views.profile_view, name='profile_view'),
     path('api/profile/token-usage/', profile_views.api_token_usage, name='api_token_usage'),
+    path('api/profile/enhanced-token-stats/', profile_views.api_enhanced_token_stats, name='api_enhanced_token_stats'),
     path('api/profile/resources/', profile_views.api_user_resources, name='api_user_resources'),
     path('api/profile/shared-resources/', profile_views.api_shared_resources, name='api_shared_resources'),
     

@@ -10,6 +10,8 @@ from django.core.cache import cache
 from asgiref.sync import sync_to_async
 from agents import Agent, Runner, set_default_openai_key
 from .email_tools import email_template_selector, list_email_templates, analyze_email_content
+from .usage_tracker import record_token_usage
+from django.contrib.auth.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +29,11 @@ class DigitalAssetsManagerAgent:
     Digital Assets Manager Agent for handling email communications and client inquiries.
     """
     
-    def __init__(self, custom_config=None):
+    def __init__(self, custom_config=None, user=None):
         """Initialize the Digital Assets Manager Agent with email tools and configuration."""
         self.agent = None
         self.custom_config = custom_config
+        self.user = user  # Store user for token tracking
         self._initialize_agent()
     
     def _initialize_agent(self):
@@ -127,7 +130,7 @@ Always maintain a professional, knowledgeable, and client-focused tone.
             logger.error(f"Failed to initialize Digital Assets Manager Agent: {e}")
             raise
     
-    async def process_message(self, message: str, session_id: str) -> Dict[str, Any]:
+    async def process_message(self, message: str, session_id: str, user=None) -> Dict[str, Any]:
         """
         Process a user message and return the agent's response.
         
@@ -136,11 +139,15 @@ Always maintain a professional, knowledgeable, and client-focused tone.
         Args:
             message: User's input message
             session_id: Unique session identifier for conversation tracking
+            user: User object for token tracking
             
         Returns:
             Dictionary containing the response and metadata
         """
         logger.info(f"Processing message for session {session_id}: {message[:100]}...")
+        
+        # Use provided user or fallback to instance user
+        current_user = user or self.user
         
         try:
             # Enhance the message with email detection context
@@ -162,6 +169,55 @@ Always maintain a professional, knowledgeable, and client-focused tone.
             
             # Extract the final response
             response_content = result.final_output if hasattr(result, 'final_output') else str(result)
+            
+            # Track token usage if user is available and result has usage data
+            tokens_used = 0
+            input_tokens = 0
+            output_tokens = 0
+            
+            if current_user and hasattr(result, 'usage'):
+                try:
+                    tokens_used = result.usage.total_tokens if hasattr(result.usage, 'total_tokens') else 0
+                    input_tokens = result.usage.prompt_tokens if hasattr(result.usage, 'prompt_tokens') else 0
+                    output_tokens = result.usage.completion_tokens if hasattr(result.usage, 'completion_tokens') else 0
+                    
+                    logger.info(f"Token usage - Total: {tokens_used}, Input: {input_tokens}, Output: {output_tokens}")
+                    
+                    # Record token usage asynchronously
+                    await sync_to_async(record_token_usage)(
+                        user=current_user,
+                        tokens_used=tokens_used,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        resource_type='agent',
+                        resource_id=session_id,
+                        operation='chat'
+                    )
+                    
+                    logger.info(f"Token usage recorded for user {current_user.username}: {tokens_used} tokens")
+                    
+                except Exception as e:
+                    logger.error(f"Error recording token usage: {e}")
+            elif current_user:
+                # If no usage data from SDK, estimate based on content length
+                estimated_tokens = len(message.split()) + len(response_content.split())
+                logger.info(f"No usage data from SDK, estimating {estimated_tokens} tokens")
+                
+                try:
+                    await sync_to_async(record_token_usage)(
+                        user=current_user,
+                        tokens_used=estimated_tokens,
+                        input_tokens=len(message.split()),
+                        output_tokens=len(response_content.split()),
+                        resource_type='agent',
+                        resource_id=session_id,
+                        operation='chat_estimated'
+                    )
+                    
+                    tokens_used = estimated_tokens
+                    
+                except Exception as e:
+                    logger.error(f"Error recording estimated token usage: {e}")
             
             # Add agent response to history
             conversation_history.append({"role": "assistant", "content": response_content})
@@ -189,7 +245,10 @@ Always maintain a professional, knowledgeable, and client-focused tone.
                     "tools_used": self._extract_tools_used(result),
                     "conversation_length": len(conversation_history),
                     "agent_type": agent_type,
-                    "agent_name": agent_name
+                    "agent_name": agent_name,
+                    "tokens_used": tokens_used,
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens
                 }
             }
             
@@ -202,7 +261,7 @@ Always maintain a professional, knowledgeable, and client-focused tone.
                 "error": str(e)
             }
 
-    async def process_message_with_documents(self, message: str, session_id: str, twin_version_id: str, user_id: int = None) -> Dict[str, Any]:
+    async def process_message_with_documents(self, message: str, session_id: str, twin_version_id: str, user_id: int = None, user=None) -> Dict[str, Any]:
         """
         Process a user message with document context from a specific twin version.
         Intelligently detects emails and uses appropriate templates for responses.
@@ -212,11 +271,15 @@ Always maintain a professional, knowledgeable, and client-focused tone.
             session_id: Unique session identifier for conversation tracking
             twin_version_id: Twin version ID to search for relevant documents
             user_id: User ID for access control (optional for backward compatibility)
+            user: User object for token tracking
             
         Returns:
             Dictionary containing the response and metadata including document context
         """
         logger.info(f"Processing message with documents for session {session_id}, twin version {twin_version_id}: {message[:100]}...")
+        
+        # Use provided user or fallback to instance user
+        current_user = user or self.user
         
         try:
             # Get document context
@@ -275,6 +338,57 @@ Please answer using the provided document context when relevant. If the document
             # Extract the final response
             response_content = result.final_output if hasattr(result, 'final_output') else str(result)
             
+            # Track token usage if user is available and result has usage data
+            tokens_used = 0
+            input_tokens = 0
+            output_tokens = 0
+            
+            if current_user and hasattr(result, 'usage'):
+                try:
+                    tokens_used = result.usage.total_tokens if hasattr(result.usage, 'total_tokens') else 0
+                    input_tokens = result.usage.prompt_tokens if hasattr(result.usage, 'prompt_tokens') else 0
+                    output_tokens = result.usage.completion_tokens if hasattr(result.usage, 'completion_tokens') else 0
+                    
+                    logger.info(f"Token usage with documents - Total: {tokens_used}, Input: {input_tokens}, Output: {output_tokens}")
+                    
+                    # Record token usage asynchronously
+                    await sync_to_async(record_token_usage)(
+                        user=current_user,
+                        tokens_used=tokens_used,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        resource_type='document',
+                        resource_id=twin_version_id,
+                        operation='chat_with_documents'
+                    )
+                    
+                    logger.info(f"Token usage recorded for user {current_user.username}: {tokens_used} tokens (with documents)")
+                    
+                except Exception as e:
+                    logger.error(f"Error recording token usage with documents: {e}")
+            elif current_user:
+                # If no usage data from SDK, estimate based on content length (including document context)
+                estimated_input = len(message.split()) + len(document_context.split()) if document_context else len(message.split())
+                estimated_output = len(response_content.split())
+                estimated_tokens = estimated_input + estimated_output
+                logger.info(f"No usage data from SDK, estimating {estimated_tokens} tokens (with documents)")
+                
+                try:
+                    await sync_to_async(record_token_usage)(
+                        user=current_user,
+                        tokens_used=estimated_tokens,
+                        input_tokens=estimated_input,
+                        output_tokens=estimated_output,
+                        resource_type='document',
+                        resource_id=twin_version_id,
+                        operation='chat_with_documents_estimated'
+                    )
+                    
+                    tokens_used = estimated_tokens
+                    
+                except Exception as e:
+                    logger.error(f"Error recording estimated token usage with documents: {e}")
+            
             # Add agent response to history
             conversation_history.append({"role": "assistant", "content": response_content})
             
@@ -302,7 +416,10 @@ Please answer using the provided document context when relevant. If the document
                     "conversation_length": len(conversation_history),
                     "document_context": document_info,
                     "agent_type": agent_type,
-                    "agent_name": agent_name
+                    "agent_name": agent_name,
+                    "tokens_used": tokens_used,
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens
                 }
             }
             
@@ -423,24 +540,24 @@ def clear_agent_cache():
     logger.info("🗑️ Cleared global agent instance cache")
 
 
-def get_agent_instance(user_id=None) -> DigitalAssetsManagerAgent:
+def get_agent_instance(user_id=None, user=None) -> DigitalAssetsManagerAgent:
     """Get or create the global agent instance (simplified version without cache to avoid async context issues)."""
     global _agent_instance
     
     # For synchronous contexts, always return the default agent to avoid cache issues
     # User-specific agents should be accessed via get_agent_instance_async
     if _agent_instance is None:
-        _agent_instance = DigitalAssetsManagerAgent()
+        _agent_instance = DigitalAssetsManagerAgent(user=user)
     return _agent_instance
 
 
 # Async version for use in async contexts
-async def get_agent_instance_async(user_id=None) -> DigitalAssetsManagerAgent:
+async def get_agent_instance_async(user_id=None, user=None) -> DigitalAssetsManagerAgent:
     """Async version of get_agent_instance for use in async contexts with database loading."""
     global _agent_instance
     
     logger.info(f"=== AGENT LOADING DEBUG ===")
-    logger.info(f"Requested agent for user_id: {user_id}")
+    logger.info(f"Requested agent for user_id: {user_id}, user: {user}")
     
     # If user_id is provided, try to load agent configuration from database
     if user_id:
@@ -464,7 +581,7 @@ async def get_agent_instance_async(user_id=None) -> DigitalAssetsManagerAgent:
                 if user_config:
                     logger.info(f"Found USER-SPECIFIC DEFAULT agent config: {user_config.name} (ID: {user_config.id})")
                     config = await _convert_db_config_to_dict(user_config)
-                    agent = DigitalAssetsManagerAgent(custom_config=config)
+                    agent = DigitalAssetsManagerAgent(custom_config=config, user=user)
                     logger.info(f"✅ Created agent from USER-SPECIFIC DEFAULT database config: {user_config.name}")
                     return agent
                 
@@ -479,7 +596,7 @@ async def get_agent_instance_async(user_id=None) -> DigitalAssetsManagerAgent:
                 if user_config:
                     logger.info(f"Found USER-SPECIFIC ACTIVE agent config: {user_config.name} (ID: {user_config.id})")
                     config = await _convert_db_config_to_dict(user_config)
-                    agent = DigitalAssetsManagerAgent(custom_config=config)
+                    agent = DigitalAssetsManagerAgent(custom_config=config, user=user)
                     logger.info(f"✅ Created agent from USER-SPECIFIC ACTIVE database config: {user_config.name}")
                     return agent
                 else:
@@ -499,7 +616,7 @@ async def get_agent_instance_async(user_id=None) -> DigitalAssetsManagerAgent:
                 if system_config:
                     logger.info(f"Found SYSTEM DEFAULT agent config: {system_config.name} (ID: {system_config.id})")
                     config = await _convert_db_config_to_dict(system_config)
-                    agent = DigitalAssetsManagerAgent(custom_config=config)
+                    agent = DigitalAssetsManagerAgent(custom_config=config, user=user)
                     logger.info(f"✅ Created agent from SYSTEM DEFAULT database config: {system_config.name}")
                     return agent
                 else:
@@ -518,7 +635,7 @@ async def get_agent_instance_async(user_id=None) -> DigitalAssetsManagerAgent:
                 if any_config:
                     logger.info(f"Found ANY ACTIVE agent config: {any_config.name} (ID: {any_config.id})")
                     config = await _convert_db_config_to_dict(any_config)
-                    agent = DigitalAssetsManagerAgent(custom_config=config)
+                    agent = DigitalAssetsManagerAgent(custom_config=config, user=user)
                     logger.info(f"✅ Created agent from ANY ACTIVE database config: {any_config.name}")
                     return agent
                 else:
@@ -534,7 +651,7 @@ async def get_agent_instance_async(user_id=None) -> DigitalAssetsManagerAgent:
     logger.info(f"🔄 Falling back to DEFAULT agent configuration")
     try:
         if _agent_instance is None:
-            _agent_instance = DigitalAssetsManagerAgent()
+            _agent_instance = DigitalAssetsManagerAgent(user=user)
             logger.info(f"✅ Created default Digital Assets Manager agent instance")
         else:
             logger.info(f"✅ Using existing default agent instance")
@@ -546,10 +663,10 @@ async def get_agent_instance_async(user_id=None) -> DigitalAssetsManagerAgent:
         raise
 
 
-def get_agent_instance_sync(user_id=None) -> DigitalAssetsManagerAgent:
+def get_agent_instance_sync(user_id=None, user=None) -> DigitalAssetsManagerAgent:
     """Synchronous version of agent loading as a fallback for async context issues."""
     logger.info(f"=== SYNC AGENT LOADING FALLBACK ===")
-    logger.info(f"Requested agent for user_id: {user_id} (sync mode)")
+    logger.info(f"Requested agent for user_id: {user_id}, user: {user} (sync mode)")
     
     # If user_id is provided, try to load agent configuration from database
     if user_id:
@@ -571,7 +688,7 @@ def get_agent_instance_sync(user_id=None) -> DigitalAssetsManagerAgent:
                 if user_config:
                     logger.info(f"Found USER-SPECIFIC DEFAULT agent config (sync): {user_config.name} (ID: {user_config.id})")
                     config = _convert_db_config_to_dict_sync(user_config)
-                    agent = DigitalAssetsManagerAgent(custom_config=config)
+                    agent = DigitalAssetsManagerAgent(custom_config=config, user=user)
                     logger.info(f"✅ Created agent from USER-SPECIFIC DEFAULT database config (sync): {user_config.name}")
                     return agent
                 
@@ -584,7 +701,7 @@ def get_agent_instance_sync(user_id=None) -> DigitalAssetsManagerAgent:
                 if user_config:
                     logger.info(f"Found USER-SPECIFIC ACTIVE agent config (sync): {user_config.name} (ID: {user_config.id})")
                     config = _convert_db_config_to_dict_sync(user_config)
-                    agent = DigitalAssetsManagerAgent(custom_config=config)
+                    agent = DigitalAssetsManagerAgent(custom_config=config, user=user)
                     logger.info(f"✅ Created agent from USER-SPECIFIC ACTIVE database config (sync): {user_config.name}")
                     return agent
                 else:
@@ -602,7 +719,7 @@ def get_agent_instance_sync(user_id=None) -> DigitalAssetsManagerAgent:
                 if system_config:
                     logger.info(f"Found SYSTEM DEFAULT agent config (sync): {system_config.name} (ID: {system_config.id})")
                     config = _convert_db_config_to_dict_sync(system_config)
-                    agent = DigitalAssetsManagerAgent(custom_config=config)
+                    agent = DigitalAssetsManagerAgent(custom_config=config, user=user)
                     logger.info(f"✅ Created agent from SYSTEM DEFAULT database config (sync): {system_config.name}")
                     return agent
                 else:
@@ -619,7 +736,7 @@ def get_agent_instance_sync(user_id=None) -> DigitalAssetsManagerAgent:
                 if any_config:
                     logger.info(f"Found ANY ACTIVE agent config (sync): {any_config.name} (ID: {any_config.id})")
                     config = _convert_db_config_to_dict_sync(any_config)
-                    agent = DigitalAssetsManagerAgent(custom_config=config)
+                    agent = DigitalAssetsManagerAgent(custom_config=config, user=user)
                     logger.info(f"✅ Created agent from ANY ACTIVE database config (sync): {any_config.name}")
                     return agent
                 else:
@@ -636,7 +753,7 @@ def get_agent_instance_sync(user_id=None) -> DigitalAssetsManagerAgent:
     try:
         global _agent_instance
         if _agent_instance is None:
-            _agent_instance = DigitalAssetsManagerAgent()
+            _agent_instance = DigitalAssetsManagerAgent(user=user)
             logger.info(f"✅ Created default Digital Assets Manager agent instance (sync)")
         else:
             logger.info(f"✅ Using existing default agent instance (sync)")

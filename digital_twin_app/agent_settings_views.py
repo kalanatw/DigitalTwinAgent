@@ -1220,14 +1220,41 @@ def user_profile(request):
         return JsonResponse({'error': 'Not authenticated'}, status=401)
     
     try:
-        profile, created = request.user.profile, False
-        if not hasattr(request.user, 'profile'):
-            from .models import UserProfile
-            profile = UserProfile.objects.create(user=request.user)
-            created = True
+        from .models import UserProfile, TokenUsage
+        from django.utils import timezone
+        from django.db.models import Sum
+        
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        
+        # Get today's token usage
+        today = timezone.now().date()
+        today_usage = TokenUsage.objects.filter(
+            user=request.user,
+            timestamp__date=today
+        ).aggregate(
+            total=Sum('tokens_used'),
+            input_total=Sum('input_tokens'),
+            output_total=Sum('output_tokens')
+        )
         
         # Get recent session data
         recent_sessions = AgentSession.objects.filter(user=request.user).order_by('-last_activity')[:5]
+        
+        # Calculate cost estimates (OpenAI pricing)
+        def calculate_cost(input_tokens, output_tokens):
+            # gpt-4o-mini pricing: $0.15 per 1M input, $0.60 per 1M output
+            input_cost = (input_tokens / 1_000_000) * 0.15
+            output_cost = (output_tokens / 1_000_000) * 0.60
+            return input_cost + output_cost
+        
+        today_cost = calculate_cost(
+            today_usage['input_total'] or 0,
+            today_usage['output_total'] or 0
+        )
+        total_cost = calculate_cost(
+            profile.total_input_tokens,
+            profile.total_output_tokens
+        )
         
         profile_data = {
             'user': {
@@ -1245,6 +1272,11 @@ def user_profile(request):
                 'total_documents_uploaded': profile.total_documents_uploaded,
                 'total_emails_processed': profile.total_emails_processed,
                 'token_usage_percentage': profile.get_token_usage_percentage(),
+                'today_tokens': today_usage['total'] or 0,
+                'today_input_tokens': today_usage['input_total'] or 0,
+                'today_output_tokens': today_usage['output_total'] or 0,
+                'estimated_cost_total': round(total_cost, 4),
+                'estimated_cost_today': round(today_cost, 4),
             },
             'limits': {
                 'daily_token_limit': profile.daily_token_limit,

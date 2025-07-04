@@ -236,7 +236,8 @@ def get_daily_usage(user, days=30):
         # Update values with actual data
         date_map = {date: i for i, date in enumerate(dates)}
         for entry in daily_data:
-            date_str = entry['date'].strftime('%Y-%m-%d')
+            # entry['date'] is already a string from the DATE() SQL function
+            date_str = str(entry['date']) if not isinstance(entry['date'], str) else entry['date']
             if date_str in date_map:
                 values[date_map[date_str]] = entry['total']
                 

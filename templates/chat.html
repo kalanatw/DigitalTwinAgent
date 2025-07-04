@@ -446,6 +446,11 @@ function chatApp() {
         // Test agent state
         testAgent: null,
         testAgentConfig: null,
+        
+        // Session management state (silent)
+        currentSessionData: null,
+        sessionTitle: null,
+        sessionLastSaved: null,
 
         // Markdown rendering function
         renderMarkdown(content) {
@@ -484,12 +489,12 @@ function chatApp() {
             // Show twin selector in navbar
             this.showNavbarTwinSelector();
             
-            // Generate session ID first
-            this.sessionId = this.getStoredSessionId() || this.generateSessionId();
+            // Initialize or load session
+            await this.initializeSession();
             
             // Load twin versions
             await this.loadTwinVersions();
-            // Load conversation history if available
+            // Load conversation history if available (legacy support)
             this.loadHistory();
             // Check connection status
             this.checkConnection();
@@ -513,6 +518,172 @@ function chatApp() {
                 } catch (error) {
                     console.error('Error parsing test agent data:', error);
                 }
+            }
+        },
+
+        // Initialize or load existing session
+        async initializeSession() {
+            try {
+                // Try to load existing session from localStorage
+                const sessionId = this.getStoredSessionId();
+                
+                if (sessionId) {
+                    // Try to load the session from backend
+                    const response = await fetch(`/api/chat/sessions/${sessionId}/`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.currentSessionData = data.session;
+                        this.sessionId = sessionId;
+                        this.sessionTitle = data.session.title;
+                        
+                        // Load messages if they exist
+                        if (data.messages && data.messages.length > 0) {
+                            this.messages = data.messages.map(msg => ({
+                                id: msg.id,
+                                role: msg.role,
+                                content: msg.content,
+                                timestamp: new Date(msg.timestamp),
+                                tools_used: msg.tools_used || []
+                            }));
+                            this.scrollToBottom();
+                        }
+                        
+                        // Set twin version if specified
+                        if (data.session.twin_version) {
+                            this.selectedTwinVersion = data.session.twin_version;
+                        }
+                        
+                        return;
+                    }
+                }
+                
+                // Create new session if no existing session found
+                await this.createNewSession();
+            } catch (error) {
+                console.error('Error initializing session:', error);
+                // Fallback to old session ID generation
+                this.sessionId = this.getStoredSessionId() || this.generateSessionId();
+            }
+        },
+
+        // Create a new chat session
+        async createNewSession() {
+            try {
+                const response = await fetch('/api/chat/sessions/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({
+                        twin_version_id: this.selectedTwinVersion?.id || null
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.currentSessionData = data.session;
+                    this.sessionId = data.session.session_id;
+                    this.sessionTitle = data.session.title;
+                    
+                    // Store session ID for persistence
+                    this.storeSessionId(this.sessionId);
+                } else {
+                    console.error('Failed to create new session');
+                    // Fallback to old method
+                    this.sessionId = this.generateSessionId();
+                }
+            } catch (error) {
+                console.error('Error creating new session:', error);
+                // Fallback to old method
+                this.sessionId = this.generateSessionId();
+            }
+        },
+
+        // Save message to current session
+        async saveMessageToSession(role, content, metadata = {}) {
+            if (!this.currentSessionData) return;
+
+            try {
+                const response = await fetch(`/api/chat/sessions/${this.sessionId}/messages/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({
+                        role: role,
+                        content: content,
+                        tools_used: metadata.tools_used || [],
+                        total_tokens: metadata.total_tokens || 0,
+                        input_tokens: metadata.input_tokens || 0,
+                        output_tokens: metadata.output_tokens || 0,
+                        model_used: metadata.model_used || '',
+                        temperature: metadata.temperature || null
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.sessionLastSaved = new Date();
+                    
+                    // Auto-generate title if this is the first user message
+                    if (role === 'user' && !this.sessionTitle && this.messages.filter(m => m.role === 'user').length === 1) {
+                        setTimeout(() => this.autoGenerateTitle(), 2000);
+                    }
+                } else {
+                    console.warn('Failed to save message to session');
+                }
+            } catch (error) {
+                console.warn('Error saving message to session:', error);
+            }
+        },
+
+        // Auto-generate session title
+        async autoGenerateTitle() {
+            if (!this.currentSessionData || this.sessionTitle) return;
+
+            try {
+                const response = await fetch(`/api/chat/sessions/${this.sessionId}/auto-name/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.sessionTitle = data.title;
+                    if (this.currentSessionData) {
+                        this.currentSessionData.title = data.title;
+                    }
+                }
+            } catch (error) {
+                console.warn('Error auto-generating title:', error);
+            }
+        },
+
+        // Switch twin version for current session
+        async updateSessionTwinVersion(twinVersion) {
+            if (!this.currentSessionData) return;
+
+            try {
+                const response = await fetch(`/api/chat/sessions/${this.sessionId}/`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({
+                        twin_version_id: twinVersion?.id || null
+                    })
+                });
+
+                if (response.ok) {
+                    this.currentSessionData.twin_version = twinVersion;
+                }
+            } catch (error) {
+                console.warn('Error updating session twin version:', error);
             }
         },
 
@@ -690,20 +861,30 @@ function chatApp() {
         },
 
         // Select twin version
-        selectTwinVersion(version) {
+        async selectTwinVersion(version) {
+            const previousVersion = this.selectedTwinVersion;
             this.selectedTwinVersion = version;
-            // Generate new session when twin version changes
-            this.sessionId = this.generateSessionId();
-            // Clear current messages
-            this.messages = [];
+            
+            // Update session twin version if we have an active session
+            if (this.currentSessionData) {
+                await this.updateSessionTwinVersion(version);
+            } else {
+                // Create new session with the selected twin version
+                await this.createNewSession();
+            }
             
             // Update navbar display
             this.updateNavbarTwinSelector();
             
+            // Add informational message about the switch
             if (version) {
-                this.addMessage('assistant', `Switched to ${version.name} v${version.version}. I now have access to ${version.document_count} documents for this twin version. How can I help you?`);
+                if (previousVersion?.id !== version.id) {
+                    this.addMessage('assistant', `Switched to ${version.name} v${version.version}. I now have access to ${version.document_count} documents for this twin version. How can I help you?`);
+                }
             } else {
-                this.addMessage('assistant', 'Switched to general mode. I can help with sensor data, system status, and general digital twin concepts.');
+                if (previousVersion) {
+                    this.addMessage('assistant', 'Switched to general mode. I can help with sensor data, system status, and general digital twin concepts.');
+                }
             }
         },
 
@@ -720,12 +901,17 @@ function chatApp() {
         // Generate new session ID
         generateSessionId() {
             const sessionId = 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+            this.storeSessionId(sessionId);
+            return sessionId;
+        },
+
+        // Store session ID in localStorage
+        storeSessionId(sessionId) {
             try {
                 localStorage.setItem('sessionId', sessionId);
             } catch (error) {
                 console.warn('Could not save session ID to localStorage:', error);
             }
-            return sessionId;
         },
 
         // Send message to the chat API
@@ -739,6 +925,9 @@ function chatApp() {
             this.addMessage('user', message);
             this.isTyping = true;
             this.scrollToBottom();
+
+            // Save user message to session (silent)
+            this.saveMessageToSession('user', message);
 
             try {
                 const payload = {
@@ -775,16 +964,27 @@ function chatApp() {
                     this.addMessage('assistant', data.response, data.metadata?.tools_used || []);
                     this.isConnected = true;
                     
+                    // Save assistant message to session (silent)
+                    this.saveMessageToSession('assistant', data.response, {
+                        tools_used: data.metadata?.tools_used || [],
+                        total_tokens: data.metadata?.tokens_used || 0,
+                        model_used: data.metadata?.model_used || ''
+                    });
+                    
                     // Show document context if provided
                     if (data.metadata?.document_context) {
                         this.showDocumentContext(data.metadata.document_context);
                     }
                 } else {
-                    this.addMessage('assistant', `Sorry, I encountered an error: ${data.message || 'Unknown error'}`);
+                    const errorMessage = `Sorry, I encountered an error: ${data.message || 'Unknown error'}`;
+                    this.addMessage('assistant', errorMessage);
+                    this.saveMessageToSession('assistant', errorMessage);
                 }
             } catch (error) {
                 console.error('Chat error:', error);
-                this.addMessage('assistant', 'Sorry, I cannot connect to the server right now. Please check your connection and try again.');
+                const errorMessage = 'Sorry, I cannot connect to the server right now. Please check your connection and try again.';
+                this.addMessage('assistant', errorMessage);
+                this.saveMessageToSession('assistant', errorMessage);
                 this.isConnected = false;
             } finally {
                 this.isTyping = false;

@@ -12,11 +12,20 @@ from . import csv_views
 from . import google_auth_views
 from . import auth_views
 from . import profile_views
+from . import chat_session_views
 
 urlpatterns = [
     # API endpoints first (more specific)
     path('api/chat/', views.ApiChatView.as_view(), name='api_chat'),
     path('api/drf-chat/', views.drf_chat_view, name='drf_chat'),
+    
+    # User-Centric Chat Session Management API endpoints  
+    path('api/chat/sessions/', chat_session_views.ChatSessionListView.as_view(), name='chat_session_list'),
+    path('api/chat/sessions/<str:session_id>/', chat_session_views.ChatSessionDetailView.as_view(), name='chat_session_detail'),
+    path('api/chat/sessions/<str:session_id>/messages/', chat_session_views.add_message_to_session, name='chat_session_add_message'),
+    path('api/chat/sessions/<str:session_id>/auto-name/', chat_session_views.auto_name_session, name='chat_session_auto_name'),
+    path('api/chat/search/', chat_session_views.search_chat_sessions, name='chat_session_search'),
+    path('api/chat/statistics/', chat_session_views.get_chat_statistics, name='chat_statistics'),
     
     # Authentication endpoints
     path('api/auth/login/', agent_settings_views.login_view, name='login'),

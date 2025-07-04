@@ -508,7 +508,7 @@ class SemanticSearch:
             # 3. Documents in twin versions shared with them
             if user_id:
                 user_filter = Q(
-                    chunk__document__uploaded_by_id=user_id
+                    chunk__document__uploaded_by=user_id
                 )  # Own documents
 
                 # Add shared twin versions

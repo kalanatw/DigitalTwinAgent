@@ -47,34 +47,127 @@ class TwinVersion(models.Model):
 
 
 class ChatSession(models.Model):
-    """Model to track chat sessions."""
+    """Model to track user-centric chat sessions."""
+    # Keep existing integer ID for now to avoid migration issues
+    # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     session_id = models.CharField(max_length=100, unique=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='chat_sessions')
+    title = models.CharField(max_length=255, blank=True, help_text="Auto-generated title for the session")
     twin_version = models.ForeignKey(TwinVersion, on_delete=models.CASCADE, null=True, blank=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    agent_config = models.ForeignKey('AgentConfiguration', on_delete=models.CASCADE, null=True, blank=True)
+    
+    # Session management
+    is_active = models.BooleanField(default=True)
+    is_pinned = models.BooleanField(default=False, help_text="Pinned sessions appear at top")
+    is_archived = models.BooleanField(default=False, help_text="Archived sessions are hidden by default")
+    
+    # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    is_active = models.BooleanField(default=True)
+    last_message_at = models.DateTimeField(null=True, blank=True)
+    
+    # Usage tracking
+    message_count = models.IntegerField(default=0)
+    total_tokens_used = models.IntegerField(default=0)
+    total_input_tokens = models.IntegerField(default=0)
+    total_output_tokens = models.IntegerField(default=0)
+    
+    # Context preservation
+    context_summary = models.TextField(blank=True, help_text="AI-generated summary of the conversation")
+    tags = models.JSONField(default=list, blank=True, help_text="User-defined tags for organization")
     
     class Meta:
-        ordering = ['-updated_at']
+        ordering = ['-last_message_at', '-updated_at']
+        indexes = [
+            models.Index(fields=['user', 'is_active', '-last_message_at']),
+            models.Index(fields=['user', 'is_pinned', '-updated_at']),
+            models.Index(fields=['user', 'is_archived']),
+            models.Index(fields=['session_id']),
+        ]
     
     def __str__(self):
-        return f"Session {self.session_id} - {self.twin_version}"
+        title = self.title or f"Session {self.session_id[:8]}..."
+        return f"{title} - {self.user.username if self.user else 'Unknown'}"
+    
+    def save(self, *args, **kwargs):
+        # Generate title if not provided
+        if not self.title and self.message_count > 0:
+            first_message = self.messages.filter(role='user').first()
+            if first_message:
+                # Generate title from first user message (truncated)
+                self.title = first_message.content[:50] + "..." if len(first_message.content) > 50 else first_message.content
+        super().save(*args, **kwargs)
 
 
 class ChatMessage(models.Model):
-    """Model to store chat messages."""
+    """Model to store user-centric chat messages."""
+    # Keep existing integer ID for now to avoid migration issues
+    # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, related_name='messages')
-    role = models.CharField(max_length=20, choices=[('user', 'User'), ('assistant', 'Assistant')])
+    role = models.CharField(max_length=20, choices=[('user', 'User'), ('assistant', 'Assistant'), ('system', 'System')])
     content = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
-    tools_used = models.JSONField(default=list, blank=True)
+    
+    # Message metadata
+    message_index = models.IntegerField(default=0, help_text="Order of message in the session")
+    parent_message = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, 
+                                     help_text="For branching conversations")
+    
+    # Token usage tracking
+    input_tokens = models.IntegerField(default=0)
+    output_tokens = models.IntegerField(default=0)
+    total_tokens = models.IntegerField(default=0)
+    
+    # Tool usage
+    tools_used = models.JSONField(default=list, blank=True, help_text="List of tools used in this message")
+    tool_outputs = models.JSONField(default=dict, blank=True, help_text="Outputs from tools used")
+    
+    # Message state
+    is_deleted = models.BooleanField(default=False)
+    is_edited = models.BooleanField(default=False)
+    edit_history = models.JSONField(default=list, blank=True, help_text="History of edits")
+    
+    # AI metadata
+    model_used = models.CharField(max_length=50, blank=True, help_text="AI model used for this response")
+    temperature = models.FloatField(null=True, blank=True, help_text="Temperature used for this response")
+    finish_reason = models.CharField(max_length=50, blank=True, help_text="Why the model stopped")
     
     class Meta:
-        ordering = ['timestamp']
+        ordering = ['session', 'message_index']
+        indexes = [
+            models.Index(fields=['session', 'message_index']),
+            models.Index(fields=['session', 'role', '-timestamp']),
+            models.Index(fields=['timestamp']),
+        ]
     
     def __str__(self):
         return f"{self.role}: {self.content[:50]}..."
+    
+    def save(self, *args, **kwargs):
+        # Track if this is a new message
+        is_new = self.pk is None
+        
+        # Auto-increment message index
+        if self.message_index is None or self.message_index == 0:
+            max_index = ChatMessage.objects.filter(session=self.session).aggregate(
+                models.Max('message_index')
+            )['message_index__max']
+            self.message_index = (max_index or 0) + 1
+        
+        # Update total tokens
+        self.total_tokens = self.input_tokens + self.output_tokens
+        
+        super().save(*args, **kwargs)
+        
+        # Update session stats (only for new messages)
+        if is_new:
+            self.session.message_count = self.session.messages.count()
+            self.session.last_message_at = self.timestamp
+            self.session.total_tokens_used += self.total_tokens
+            self.session.total_input_tokens += self.input_tokens
+            self.session.total_output_tokens += self.output_tokens
+            self.session.save(update_fields=['message_count', 'last_message_at', 
+                                           'total_tokens_used', 'total_input_tokens', 'total_output_tokens'])
 
 
 class Document(models.Model):

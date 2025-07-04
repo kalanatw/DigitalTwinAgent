@@ -1,0 +1,681 @@
+{% extends "base.html" %}
+
+{% block title %}Profile | Digital Twin{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="ios-card">
+                <div class="ios-card-header">
+                    <h3>{{ user.username }}</h3>
+                    <p class="text-muted">{{ user.email }}</p>
+                </div>
+                <div class="ios-card-body">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#profile" data-bs-toggle="tab">Profile</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#usage" data-bs-toggle="tab">Token Usage</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#resources" data-bs-toggle="tab">My Resources</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#settings" data-bs-toggle="tab">Settings</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="tab-content">
+                <!-- Profile Tab -->
+                <div class="tab-pane fade show active" id="profile">
+                    <div class="ios-card">
+                        <div class="ios-card-header">
+                            <h3>User Profile</h3>
+                        </div>
+                        <div class="ios-card-body">
+                            <div class="row mb-4">
+                                <div class="col-md-4">
+                                    <div class="stat-card">
+                                        <div class="stat-title">Documents</div>
+                                        <div class="stat-value">{{ document_count }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="stat-card">
+                                        <div class="stat-title">Twin Versions</div>
+                                        <div class="stat-value">{{ twin_version_count }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="stat-card">
+                                        <div class="stat-title">Agents</div>
+                                        <div class="stat-value">{{ agent_count }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h5>User Information</h5>
+                                    <table class="table">
+                                        <tr>
+                                            <th>Username:</th>
+                                            <td>{{ user.username }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Email:</th>
+                                            <td>{{ user.email }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Name:</th>
+                                            <td>{{ user.first_name }} {{ user.last_name }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Last Login:</th>
+                                            <td>{{ profile.last_login|date:"M d, Y H:i" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Member Since:</th>
+                                            <td>{{ user.date_joined|date:"M d, Y" }}</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <h5>Usage Summary</h5>
+                                    <table class="table">
+                                        <tr>
+                                            <th>Total Tokens:</th>
+                                            <td>{{ profile.total_tokens_used|intcomma }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Input Tokens:</th>
+                                            <td>{{ profile.total_input_tokens|intcomma }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Output Tokens:</th>
+                                            <td>{{ profile.total_output_tokens|intcomma }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Chat Sessions:</th>
+                                            <td>{{ profile.total_chat_sessions|intcomma }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Documents:</th>
+                                            <td>{{ profile.total_documents_uploaded|intcomma }}</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Token Usage Tab -->
+                <div class="tab-pane fade" id="usage">
+                    <div class="ios-card">
+                        <div class="ios-card-header">
+                            <h3>Token Usage</h3>
+                        </div>
+                        <div class="ios-card-body">
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <div class="usage-stat-card primary">
+                                        <div class="stat-title">30-Day Usage</div>
+                                        <div class="stat-value">{{ token_stats.total_recent|intcomma }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="usage-stat-card secondary">
+                                        <div class="stat-title">All-Time Usage</div>
+                                        <div class="stat-value">{{ token_stats.total_all_time|intcomma }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h5>Daily Usage (Last 30 Days)</h5>
+                                    <div class="chart-container">
+                                        <canvas id="tokenUsageChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h5>Usage by Resource Type</h5>
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Resource Type</th>
+                                                <th>Tokens</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for resource in token_stats.by_resource %}
+                                            <tr>
+                                                <td>{{ resource.resource_type|title }}</td>
+                                                <td>{{ resource.total|intcomma }}</td>
+                                            </tr>
+                                            {% empty %}
+                                            <tr>
+                                                <td colspan="2">No usage data available</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <h5>Usage Limits</h5>
+                                    <div class="limit-container mb-3">
+                                        <label>Daily Limit: {{ profile.daily_token_limit|intcomma }}</label>
+                                        <div class="progress">
+                                            {% with daily_percent=token_stats.daily_percent|default:0 %}
+                                            <div class="progress-bar {% if daily_percent > 80 %}bg-danger{% elif daily_percent > 50 %}bg-warning{% else %}bg-success{% endif %}" 
+                                                role="progressbar" style="width: {{ daily_percent }}%" 
+                                                aria-valuenow="{{ daily_percent }}" aria-valuemin="0" aria-valuemax="100">
+                                                {{ daily_percent }}%
+                                            </div>
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                    <div class="limit-container">
+                                        <label>Monthly Limit: {{ profile.monthly_token_limit|intcomma }}</label>
+                                        <div class="progress">
+                                            {% with monthly_percent=token_stats.monthly_percent|default:0 %}
+                                            <div class="progress-bar {% if monthly_percent > 80 %}bg-danger{% elif monthly_percent > 50 %}bg-warning{% else %}bg-success{% endif %}" 
+                                                role="progressbar" style="width: {{ monthly_percent }}%" 
+                                                aria-valuenow="{{ monthly_percent }}" aria-valuemin="0" aria-valuemax="100">
+                                                {{ monthly_percent }}%
+                                            </div>
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- My Resources Tab -->
+                <div class="tab-pane fade" id="resources">
+                    <div class="ios-card">
+                        <div class="ios-card-header">
+                            <h3>My Resources</h3>
+                        </div>
+                        <div class="ios-card-body">
+                            <div class="row mb-4" id="resourceSummary">
+                                <div class="col-md-4">
+                                    <div class="stat-card">
+                                        <div class="stat-title">My Resources</div>
+                                        <div class="stat-value" id="totalOwnResources">Loading...</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="stat-card">
+                                        <div class="stat-title">Shared With Me</div>
+                                        <div class="stat-value" id="totalSharedResources">Loading...</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="stat-card">
+                                        <div class="stat-title">Public Resources</div>
+                                        <div class="stat-value" id="totalPublicResources">Loading...</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-12">
+                                    <ul class="nav nav-tabs" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active" id="documents-tab" data-bs-toggle="tab" 
+                                                    data-bs-target="#documents" type="button" role="tab">Documents</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="twins-tab" data-bs-toggle="tab" 
+                                                    data-bs-target="#twins" type="button" role="tab">Twin Versions</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="agents-tab" data-bs-toggle="tab" 
+                                                    data-bs-target="#agents" type="button" role="tab">Agents</button>
+                                        </li>
+                                    </ul>
+                                    
+                                    <div class="tab-content mt-3">
+                                        <div class="tab-pane fade show active" id="documents" role="tabpanel">
+                                            <div class="resource-filters mb-3">
+                                                <select class="form-select" id="documentFilter">
+                                                    <option value="all">All Documents</option>
+                                                    <option value="own">My Documents</option>
+                                                    <option value="shared">Shared With Me</option>
+                                                </select>
+                                            </div>
+                                            <div class="table-responsive">
+                                                <table class="table" id="documentsTable">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Title</th>
+                                                            <th>Twin Version</th>
+                                                            <th>Type</th>
+                                                            <th>Owner</th>
+                                                            <th>Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td colspan="5">Loading documents...</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="tab-pane fade" id="twins" role="tabpanel">
+                                            <div class="resource-filters mb-3">
+                                                <select class="form-select" id="twinFilter">
+                                                    <option value="all">All Twin Versions</option>
+                                                    <option value="own">My Twin Versions</option>
+                                                    <option value="shared">Shared With Me</option>
+                                                </select>
+                                            </div>
+                                            <div class="table-responsive">
+                                                <table class="table" id="twinsTable">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Name</th>
+                                                            <th>Version</th>
+                                                            <th>Documents</th>
+                                                            <th>Owner</th>
+                                                            <th>Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td colspan="5">Loading twin versions...</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="tab-pane fade" id="agents" role="tabpanel">
+                                            <div class="resource-filters mb-3">
+                                                <select class="form-select" id="agentFilter">
+                                                    <option value="all">All Agents</option>
+                                                    <option value="own">My Agents</option>
+                                                    <option value="shared">Shared With Me</option>
+                                                </select>
+                                            </div>
+                                            <div class="table-responsive">
+                                                <table class="table" id="agentsTable">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Name</th>
+                                                            <th>Model</th>
+                                                            <th>Owner</th>
+                                                            <th>Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td colspan="4">Loading agents...</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Settings Tab -->
+                <div class="tab-pane fade" id="settings">
+                    <div class="ios-card">
+                        <div class="ios-card-header">
+                            <h3>Settings</h3>
+                        </div>
+                        <div class="ios-card-body">
+                            <form id="tokenLimitsForm">
+                                <div class="mb-3">
+                                    <label for="dailyTokenLimit" class="form-label">Daily Token Limit</label>
+                                    <input type="number" class="form-control" id="dailyTokenLimit" 
+                                           value="{{ profile.daily_token_limit }}">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="monthlyTokenLimit" class="form-label">Monthly Token Limit</label>
+                                    <input type="number" class="form-control" id="monthlyTokenLimit" 
+                                           value="{{ profile.monthly_token_limit }}">
+                                </div>
+                                <button type="submit" class="btn btn-primary">Save Limits</button>
+                            </form>
+                            
+                            <hr>
+                            
+                            <div class="mb-3">
+                                <h5>Account Settings</h5>
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
+                                    <label class="form-check-label" for="emailNotifications">Email Notifications</label>
+                                </div>
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="resourceSharing" checked>
+                                    <label class="form-check-label" for="resourceSharing">Allow Resource Sharing</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stat-card {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.stat-title {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 8px;
+}
+.stat-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #333;
+}
+.usage-stat-card {
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    color: white;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+.usage-stat-card.primary {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+}
+.usage-stat-card.secondary {
+    background: linear-gradient(135deg, #6c757d, #495057);
+}
+.usage-stat-card .stat-title {
+    font-size: 18px;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 10px;
+}
+.usage-stat-card .stat-value {
+    font-size: 28px;
+    font-weight: bold;
+    color: white;
+}
+.chart-container {
+    height: 300px;
+    margin-bottom: 20px;
+}
+.limit-container {
+    margin-bottom: 15px;
+}
+.limit-container label {
+    display: block;
+    margin-bottom: 5px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize token usage chart
+    const ctx = document.getElementById('tokenUsageChart').getContext('2d');
+    const tokenChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ daily_usage_dates|safe }},
+            datasets: [{
+                label: 'Token Usage',
+                data: {{ daily_usage_values|safe }},
+                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                borderColor: 'rgba(0, 123, 255, 1)',
+                borderWidth: 2,
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Tokens Used'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
+                }
+            }
+        }
+    });
+    
+    // Load resource information
+    loadResourceInfo();
+    
+    // Set up form submission
+    document.getElementById('tokenLimitsForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveTokenLimits();
+    });
+    
+    // Set up filter change handlers
+    document.getElementById('documentFilter').addEventListener('change', function() {
+        loadDocuments(this.value);
+    });
+    document.getElementById('twinFilter').addEventListener('change', function() {
+        loadTwinVersions(this.value);
+    });
+    document.getElementById('agentFilter').addEventListener('change', function() {
+        loadAgents(this.value);
+    });
+    
+    // Initial load of documents
+    loadDocuments('all');
+    loadTwinVersions('all');
+    loadAgents('all');
+});
+
+function loadResourceInfo() {
+    fetch('/api/user/resources/')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('totalOwnResources').textContent = data.own_resources.total;
+            document.getElementById('totalSharedResources').textContent = data.shared_resources.total;
+            document.getElementById('totalPublicResources').textContent = data.public_resources.total;
+        })
+        .catch(error => console.error('Error loading resource info:', error));
+}
+
+function saveTokenLimits() {
+    const dailyLimit = document.getElementById('dailyTokenLimit').value;
+    const monthlyLimit = document.getElementById('monthlyTokenLimit').value;
+    
+    fetch('/api/user/token-limits/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({
+            daily_limit: dailyLimit,
+            monthly_limit: monthlyLimit
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);
+        } else {
+            alert('Token limits updated successfully');
+        }
+    })
+    .catch(error => console.error('Error saving token limits:', error));
+}
+
+function loadDocuments(filter) {
+    let url = '/api/documents/?page_size=100';
+    if (filter === 'own') {
+        url += '&owned_only=true';
+    } else if (filter === 'shared') {
+        url += '&shared_only=true';
+    }
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.querySelector('#documentsTable tbody');
+            tbody.innerHTML = '';
+            
+            if (data.results && data.results.length > 0) {
+                data.results.forEach(doc => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${doc.title}</td>
+                        <td>${doc.twin_version_name}</td>
+                        <td>${doc.file_type}</td>
+                        <td>${doc.owner}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="viewDocument('${doc.id}')">View</button>
+                            ${doc.is_owner ? `<button class="btn btn-sm btn-outline-danger" onclick="deleteDocument('${doc.id}')">Delete</button>` : ''}
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5">No documents found</td></tr>';
+            }
+        })
+        .catch(error => console.error('Error loading documents:', error));
+}
+
+function loadTwinVersions(filter) {
+    // Similar implementation to loadDocuments
+    let url = '/api/twin-versions/';
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.querySelector('#twinsTable tbody');
+            tbody.innerHTML = '';
+            
+            // Filter data based on selection
+            let versions;
+            if (filter === 'own') {
+                versions = data.own_versions || [];
+            } else if (filter === 'shared') {
+                versions = data.shared_versions || [];
+            } else {
+                versions = [...(data.own_versions || []), ...(data.shared_versions || [])];
+            }
+            
+            if (versions.length > 0) {
+                versions.forEach(tv => {
+                    const row = document.createElement('tr');
+                    const isOwner = tv.owner === 'you';
+                    row.innerHTML = `
+                        <td>${tv.name}</td>
+                        <td>${tv.version}</td>
+                        <td>${tv.document_count}</td>
+                        <td>${tv.owner}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="viewTwinVersion('${tv.id}')">View</button>
+                            ${isOwner ? `<button class="btn btn-sm btn-outline-danger" onclick="deleteTwinVersion('${tv.id}')">Delete</button>` : ''}
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5">No twin versions found</td></tr>';
+            }
+        })
+        .catch(error => console.error('Error loading twin versions:', error));
+}
+
+function loadAgents(filter) {
+    // Implementation for loading agents
+    let url = '/api/agents/';
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.querySelector('#agentsTable tbody');
+            tbody.innerHTML = '';
+            
+            // Filter data based on selection (actual implementation would depend on your API structure)
+            let agents = [];
+            if (data.agents) {
+                if (filter === 'own') {
+                    agents = data.agents.filter(a => a.is_owner);
+                } else if (filter === 'shared') {
+                    agents = data.agents.filter(a => !a.is_owner);
+                } else {
+                    agents = data.agents;
+                }
+            }
+            
+            if (agents.length > 0) {
+                agents.forEach(agent => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${agent.name}</td>
+                        <td>${agent.model}</td>
+                        <td>${agent.owner || 'Unknown'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="viewAgent(${agent.id})">View</button>
+                            ${agent.is_owner ? `<button class="btn btn-sm btn-outline-danger" onclick="deleteAgent(${agent.id})">Delete</button>` : ''}
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4">No agents found</td></tr>';
+            }
+        })
+        .catch(error => console.error('Error loading agents:', error));
+}
+
+function viewDocument(id) {
+    window.location.href = `/dms/?document=${id}`;
+}
+
+function viewTwinVersion(id) {
+    window.location.href = `/dms/?twin_version=${id}`;
+}
+
+function viewAgent(id) {
+    window.location.href = `/settings/?agent=${id}`;
+}
+
+function getCsrfToken() {
+    const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('csrftoken='))
+        ?.split('=')[1];
+    return cookieValue;
+}
+</script>
+{% endblock %}

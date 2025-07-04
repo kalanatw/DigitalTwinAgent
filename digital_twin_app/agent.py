@@ -202,7 +202,7 @@ Always maintain a professional, knowledgeable, and client-focused tone.
                 "error": str(e)
             }
 
-    async def process_message_with_documents(self, message: str, session_id: str, twin_version_id: str) -> Dict[str, Any]:
+    async def process_message_with_documents(self, message: str, session_id: str, twin_version_id: str, user_id: int = None) -> Dict[str, Any]:
         """
         Process a user message with document context from a specific twin version.
         Intelligently detects emails and uses appropriate templates for responses.
@@ -211,6 +211,7 @@ Always maintain a professional, knowledgeable, and client-focused tone.
             message: User's input message
             session_id: Unique session identifier for conversation tracking
             twin_version_id: Twin version ID to search for relevant documents
+            user_id: User ID for access control (optional for backward compatibility)
             
         Returns:
             Dictionary containing the response and metadata including document context
@@ -222,10 +223,11 @@ Always maintain a professional, knowledgeable, and client-focused tone.
             from .document_utils import SemanticSearch
             semantic_search = SemanticSearch()
             
-            # Search for relevant documents
+            # Search for relevant documents with user-centric access control
             document_results = await semantic_search.search_documents(
                 query=message,
                 twin_version_id=twin_version_id,
+                user_id=user_id,  # Add user ID for access control
                 top_k=5
             )
             

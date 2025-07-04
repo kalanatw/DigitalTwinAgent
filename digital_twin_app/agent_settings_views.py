@@ -11,6 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Q
 from django.core.cache import cache
 from django.views.generic import TemplateView
 from django.utils import timezone
@@ -86,16 +87,41 @@ def get_available_tools():
     ]
 
 
+@csrf_exempt
+@csrf_exempt
 @api_view(['GET', 'POST'])
 def agent_configurations(request):
     """List user's agent configurations or create a new one"""
     
     if request.method == 'GET':
-        # Get all active agents instead of restricting to user
-        # This is a temporary fix for the authentication issue
-        agents = AgentConfiguration.objects.filter(
-            is_active=True
-        ).order_by('-updated_at')
+        # Get user's own agents and shared agents
+        if request.user.is_authenticated:
+            # User's own agents
+            own_agents = AgentConfiguration.objects.filter(
+                user=request.user,
+                is_active=True
+            )
+            
+            # Explicitly shared agents (agents explicitly shared with this user)
+            explicitly_shared = AgentConfiguration.objects.filter(
+                shares__shared_with=request.user,
+                is_active=True
+            )
+            
+            # Publicly shared agents (excluding user's own)
+            public_agents = AgentConfiguration.objects.filter(
+                is_shared=True,
+                is_active=True
+            ).exclude(user=request.user)
+            
+            # Combine all accessible agents
+            all_agents = list(own_agents) + list(explicitly_shared) + list(public_agents)
+            # Remove duplicates
+            unique_agents = {agent.id: agent for agent in all_agents}.values()
+            agents = sorted(unique_agents, key=lambda x: x.updated_at, reverse=True)
+        else:
+            # For unauthenticated users, return empty list or redirect to login
+            return JsonResponse({'error': 'Authentication required'}, status=401)
         
         agent_data = []
         for agent in agents:
@@ -123,6 +149,10 @@ def agent_configurations(request):
         return JsonResponse({'agents': agent_data})
     
     elif request.method == 'POST':
+        # Require authentication for creating agents
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+            
         try:
             data = request.data
             
@@ -132,11 +162,8 @@ def agent_configurations(request):
                 if not data.get(field):
                     return JsonResponse({'error': f'{field} is required'}, status=400)
             
-            # Create new agent configuration
+            # Create new agent configuration for the authenticated user
             with transaction.atomic():
-                # Get or create a default user for anonymous access (temporary fix)
-                default_user = User.objects.get_or_create(username='default_system_user')[0]
-                
                 agent_config = AgentConfiguration.objects.create(
                     name=data['name'],
                     description=data.get('description', ''),
@@ -153,7 +180,7 @@ def agent_configurations(request):
                     capabilities=data.get('capabilities', []),
                     is_active=data.get('is_active', True),
                     is_default=data.get('is_default', False),
-                    created_by=default_user  # Use default user instead of request.user
+                    user=request.user
                 )
             
             logger.info(f"Created new agent configuration: {agent_config.name}")
@@ -169,17 +196,30 @@ def agent_configurations(request):
             return JsonResponse({'error': str(e)}, status=500)
 
 
+@csrf_exempt
 @api_view(['GET', 'PUT', 'DELETE'])
 def agent_configuration_detail(request, agent_id):
     """Get, update, or delete a specific agent configuration"""
     
+    # Require authentication
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+    
     try:
-        # Remove user check to fix authentication issues temporarily
-        agent_config = AgentConfiguration.objects.get(
-            id=agent_id
-        )
-    except AgentConfiguration.DoesNotExist:
-        return JsonResponse({'error': 'Agent configuration not found'}, status=404)
+        # Check if user has access to this agent (own, shared, or public)
+        agent_config = AgentConfiguration.objects.filter(
+            Q(id=agent_id) & (
+                Q(user=request.user) |  # Own agent
+                Q(is_shared=True) |  # Public agent
+                Q(shares__shared_with=request.user)  # Explicitly shared
+            )
+        ).first()
+        
+        if not agent_config:
+            return JsonResponse({'error': 'Agent configuration not found or access denied'}, status=404)
+            
+    except Exception as e:
+        return JsonResponse({'error': 'Invalid agent ID'}, status=400)
     
     if request.method == 'GET':
         return JsonResponse({
@@ -204,6 +244,10 @@ def agent_configuration_detail(request, agent_id):
         })
     
     elif request.method == 'PUT':
+        # Only allow the owner to update the agent
+        if agent_config.user != request.user:
+            return JsonResponse({'error': 'Permission denied. Only the owner can modify this agent.'}, status=403)
+            
         try:
             data = request.data
             
@@ -235,6 +279,10 @@ def agent_configuration_detail(request, agent_id):
             return JsonResponse({'error': str(e)}, status=500)
     
     elif request.method == 'DELETE':
+        # Only allow the owner to delete the agent
+        if agent_config.user != request.user:
+            return JsonResponse({'error': 'Permission denied. Only the owner can delete this agent.'}, status=403)
+            
         try:
             agent_name = agent_config.name
             agent_config.delete()
@@ -486,7 +534,7 @@ Focus on being helpful, accurate, and thorough in your analysis.''',
                 # Try to find agent with strict user ownership first
                 agent_config = AgentConfiguration.objects.get(
                     id=agent_id_int,
-                    created_by=request.user,
+                    user=request.user,
                     is_active=True
                 )
             except AgentConfiguration.DoesNotExist:
@@ -502,7 +550,7 @@ Focus on being helpful, accurate, and thorough in your analysis.''',
             with transaction.atomic():
                 # First, remove default status from all other agents for this user  
                 AgentConfiguration.objects.filter(
-                    created_by=request.user,
+                    user=request.user,
                     is_default=True
                 ).exclude(id=agent_config.id).update(is_default=False)
                 
@@ -660,7 +708,7 @@ def export_agents(request):
     """Export user's agent configurations"""
     
     try:
-        agents = AgentConfiguration.objects.filter(created_by=request.user)
+        agents = AgentConfiguration.objects.filter(user=request.user)
         
         export_data = {
             'version': '1.0',
@@ -723,7 +771,7 @@ def import_agents(request):
                 # Check if agent with same name already exists
                 existing = AgentConfiguration.objects.filter(
                     name=agent_data['name'],
-                    created_by=request.user
+                    user=request.user
                 ).first()
                 
                 if existing:
@@ -735,7 +783,7 @@ def import_agents(request):
                 else:
                     # Create new agent
                     AgentConfiguration.objects.create(
-                        created_by=request.user,
+                        user=request.user,
                         **agent_data
                     )
                 

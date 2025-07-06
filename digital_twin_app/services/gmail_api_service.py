@@ -61,8 +61,9 @@ class GmailAPIService:
                 client_id=settings.GOOGLE_OAUTH_CONFIG['web']['client_id'],
                 client_secret=settings.GOOGLE_OAUTH_CONFIG['web']['client_secret'],
                 scopes=[
-                    'https://www.googleapis.com/auth/gmail.readonly',
-                    'https://www.googleapis.com/auth/gmail.labels'
+                    'https://mail.google.com/',  # Full Gmail access including send
+                    'email',
+                    'profile'
                 ]
             )
             
@@ -361,7 +362,13 @@ class GmailAPIService:
         if error.resp.status == 401:
             logger.warning("Gmail API authentication failed - token expired")
         elif error.resp.status == 403:
-            logger.warning("Gmail API access forbidden - quota exceeded or insufficient permissions")
+            # Check for specific scope-related errors
+            error_details = str(error)
+            if 'insufficientPermissions' in error_details or 'insufficient authentication scopes' in error_details.lower():
+                logger.error("Gmail API insufficient permissions - OAuth re-authorization required")
+                raise ValueError("OAuth re-authorization required. Please re-connect your Gmail account with updated permissions.")
+            else:
+                logger.warning("Gmail API access forbidden - quota exceeded or insufficient permissions")
         elif error.resp.status == 404:
             logger.info("Gmail resource not found")
         elif error.resp.status == 429:
@@ -392,3 +399,64 @@ class GmailAPIService:
         except Exception as error:
             logger.error(f"Error searching messages: {error}")
             return []
+    
+    def send_email(self, email_data: Dict) -> Optional[Dict]:
+        """
+        Send an email using Gmail API.
+        
+        Args:
+            email_data: Dictionary containing email details
+                - to: recipient email address (required)
+                - subject: email subject (required)
+                - body: email body content (required)
+                - cc: CC recipients (optional)
+                - bcc: BCC recipients (optional)
+                - from: sender email (optional, uses authenticated user's email if not provided)
+                
+        Returns:
+            Dict with message ID if successful, None if failed
+        """
+        try:
+            if not self.service:
+                logger.error("Gmail service not initialized")
+                return None
+            
+            import email.mime.text
+            import email.mime.multipart
+            
+            # Create message
+            message = email.mime.multipart.MIMEMultipart()
+            message['To'] = email_data['to']
+            message['Subject'] = email_data['subject']
+            
+            # Add optional headers
+            if email_data.get('cc'):
+                message['Cc'] = email_data['cc']
+            if email_data.get('bcc'):
+                message['Bcc'] = email_data['bcc']
+            if email_data.get('from'):
+                message['From'] = email_data['from']
+            
+            # Add body
+            body_part = email.mime.text.MIMEText(email_data['body'], 'html' if '<' in email_data['body'] else 'plain')
+            message.attach(body_part)
+            
+            # Convert to raw message
+            raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
+            
+            # Send message
+            result = self.service.users().messages().send(
+                userId='me',
+                body={'raw': raw_message}
+            ).execute()
+            
+            logger.info(f"Email sent successfully with ID: {result.get('id')}")
+            return result
+            
+        except HttpError as error:
+            logger.error(f"HTTP error sending email: {error}")
+            self._handle_api_error(error)
+            return None
+        except Exception as error:
+            logger.error(f"Unexpected error sending email: {error}")
+            return None

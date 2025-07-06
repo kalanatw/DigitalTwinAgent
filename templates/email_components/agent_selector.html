@@ -1,0 +1,125 @@
+<!-- AI Agent Selection Modal - Slide up from bottom (iOS style) -->
+<div x-show="showAgentSelector" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 z-60 overflow-hidden">
+    
+    <div class="absolute inset-0 modal-backdrop" @click="showAgentSelector = false"></div>
+    
+    <!-- Slide up panel -->
+    <div class="absolute bottom-0 left-0 right-0"
+         x-transition:enter="transition ease-out duration-300 transform"
+         x-transition:enter-start="translate-y-full"
+         x-transition:enter-end="translate-y-0"
+         x-transition:leave="transition ease-in duration-200 transform"
+         x-transition:leave-start="translate-y-0"
+         x-transition:leave-end="translate-y-full">
+        
+        <div class="modal-card rounded-t-3xl rounded-b-none">
+            <!-- Handle for drag gesture -->
+            <div class="flex justify-center pt-4 pb-2">
+                <div class="modal-handle"></div>
+            </div>
+            
+            <div class="px-6 py-4">
+                <h3 class="text-xl font-semibold text-gray-900 mb-6 text-center">
+                    <i class="fas fa-robot text-purple-500 mr-2"></i>
+                    Select AI Agent
+                </h3>
+                
+                <!-- Current active agent display -->
+                <div class="bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-2xl p-4 mb-6 border border-purple-200">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-robot text-white"></i>
+                        </div>
+                        <div>
+                            <div class="font-medium text-gray-900" x-text="activeAgent.name">Current Agent</div>
+                            <div class="text-sm text-gray-600" x-text="'Version: ' + activeAgent.twin_version">Version Info</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Agent selection grid -->
+                <div class="space-y-3 mb-6 max-h-64 overflow-y-auto smooth-scroll">
+                    <template x-for="agent in availableAgents" :key="agent.id">
+                        <button @click="selectAgentForReply(agent)" 
+                                class="w-full text-left p-4 rounded-2xl border-2 transition-all hover:shadow-md btn-animate"
+                                :class="selectedAgentId === agent.id ? 
+                                    'border-purple-500 bg-purple-50' : 
+                                    'border-gray-200 hover:border-gray-300'">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-gradient-to-r from-gray-400 to-gray-600 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-user-robot text-white text-sm"></i>
+                                </div>
+                                <div>
+                                    <div class="font-medium text-gray-900" x-text="agent.name"></div>
+                                    <div class="text-xs text-gray-600" x-text="agent.expertise || 'AI Assistant'"></div>
+                                </div>
+                                <div class="ml-auto">
+                                    <i class="fas fa-check text-purple-500" x-show="selectedAgentId === agent.id"></i>
+                                </div>
+                            </div>
+                        </button>
+                    </template>
+                </div>
+                
+                <!-- Twin version selection -->
+                <div x-show="selectedAgentId" class="space-y-3 mb-6">
+                    <h4 class="font-medium text-gray-900">Select Version:</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <template x-for="version in availableTwinVersions" :key="version.id">
+                            <button @click="selectedTwinVersionId = version.id" 
+                                    class="p-3 rounded-xl border-2 text-sm transition-all btn-animate"
+                                    :class="selectedTwinVersionId === version.id ? 
+                                        'border-blue-500 bg-blue-50' : 
+                                        'border-gray-200 hover:border-gray-300'">
+                                <div class="font-medium" x-text="version.name"></div>
+                                <div class="text-xs opacity-75" x-text="'v' + version.version"></div>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+                
+                <!-- Reply tone selection -->
+                <div class="space-y-3 mb-6">
+                    <h4 class="font-medium text-gray-900">Reply Tone:</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <template x-for="tone in replyTones" :key="tone.value">
+                            <button @click="selectedTone = tone.value" 
+                                    class="p-3 rounded-xl border-2 text-sm transition-all btn-animate"
+                                    :class="selectedTone === tone.value ? 
+                                        'border-green-500 bg-green-50' : 
+                                        'border-gray-200 hover:border-gray-300'">
+                                <i :class="tone.icon" class="mr-2"></i>
+                                <span x-text="tone.label"></span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+                
+                <!-- Action buttons -->
+                <div class="flex space-x-3 pb-safe">
+                    <button @click="showAgentSelector = false" 
+                            class="flex-1 py-3 px-4 bg-gray-100 text-gray-700 rounded-2xl font-medium hover:bg-gray-200 transition-all btn-animate">
+                        Cancel
+                    </button>
+                    <button @click="generateAIReply()" 
+                            :disabled="!selectedAgentId || !selectedTwinVersionId || isGenerating"
+                            class="flex-1 py-3 px-4 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-2xl font-medium hover:shadow-lg disabled:opacity-50 transition-all btn-animate">
+                        <span x-show="!isGenerating">
+                            <i class="fas fa-magic mr-2"></i>Generate Reply
+                        </span>
+                        <span x-show="isGenerating">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>Generating...
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,163 @@
+<!-- Header Section Component -->
+<div>
+    <!-- Main Header -->
+    <div class="glass-strong rounded-2xl p-6 mb-6">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div class="flex-shrink-0">
+                <h2 class="text-3xl font-bold text-white mb-2">
+                    <i class="fab fa-google mr-3 text-red-400"></i>
+                    Gmail Email Management
+                </h2>
+                <p class="text-white/70">Connect your Gmail account and manage your emails with AI assistance</p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                {% if has_gmail_connection %}
+                    <!-- Re-authorization button (shown when scope issues detected) -->
+                    <button x-show="hasScopeIssue" 
+                            @click="reauthorizeGmail()" 
+                            class="btn-warning px-5 py-3 flex-shrink-0 animate-pulse">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        Fix Permissions
+                    </button>
+                    
+                    <button @click="refreshEmails()" 
+                            :disabled="isLoading"
+                            class="btn-secondary px-5 py-3 disabled:opacity-50 flex-shrink-0">
+                        <i class="fas fa-sync-alt mr-2" :class="{ 'fa-spin': isLoading }"></i>
+                        Refresh
+                    </button>
+                    <a href="{% url 'gmail_disconnect' %}" 
+                       class="btn-danger px-5 py-3 flex-shrink-0"
+                       onclick="return confirm('Are you sure you want to disconnect Gmail?')">
+                        <i class="fas fa-unlink mr-2"></i>
+                        Disconnect
+                    </a>
+                {% else %}
+                    <a href="{% url 'gmail_connect' %}" 
+                       class="btn-primary px-6 py-3 flex-shrink-0">
+                        <i class="fab fa-google mr-2"></i>
+                        Connect Gmail
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Connection Status -->
+        <div class="mt-6 p-4 rounded-xl" :class="connectionStatus.connected ? (hasScopeIssue ? 'bg-yellow-500/20 border border-yellow-500/30' : 'bg-green-500/20 border border-green-500/30') : 'bg-red-500/20 border border-red-500/30'">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0">
+                    <i class="fas text-xl" :class="connectionStatus.connected ? (hasScopeIssue ? 'fa-exclamation-triangle text-yellow-400' : 'fa-check-circle text-green-400') : 'fa-times-circle text-red-400'"></i>
+                </div>
+                <div>
+                    <span class="text-white font-semibold text-lg">
+                        <span x-show="connectionStatus.connected && !hasScopeIssue">Connected to Gmail</span>
+                        <span x-show="connectionStatus.connected && hasScopeIssue">Gmail Connected - Permissions Issue</span>
+                        <span x-show="!connectionStatus.connected">Gmail Not Connected</span>
+                    </span>
+                    <div x-show="connectionStatus.connected && connectionStatus.email" class="text-white/70 text-sm mt-1">
+                        Account: <span x-text="connectionStatus.email" class="font-mono"></span>
+                    </div>
+                    <div x-show="hasScopeIssue" class="text-yellow-300 text-sm mt-1">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Gmail permissions need to be updated to send emails. Click "Fix Permissions" to resolve.
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Active Agent Display -->
+        <div x-show="connectionStatus.connected" class="mt-6 p-4 rounded-xl bg-blue-500/20 border border-blue-500/30">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-robot text-2xl text-blue-400"></i>
+                    </div>
+                    <div>
+                        <div class="text-white font-semibold">
+                            Active Agent: <span x-text="activeAgent.name">{{ agent_name }}</span>
+                        </div>
+                        <div class="text-white/70 text-sm mt-1">
+                            Version: <span x-text="activeAgent.twin_version">{{ twin_version_name|default:"Default" }}</span>
+                        </div>
+                    </div>
+                </div>
+                <button @click="showAgentSelector = true" class="btn-ghost px-4 py-2 text-sm">
+                    <i class="fas fa-cog mr-2"></i>
+                    Change Agent
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Section -->
+    <div x-show="connectionStatus.connected" class="search-section glass-strong rounded-2xl p-6 mb-6">
+        <div class="flex items-center gap-3 mb-4">
+            <i class="fas fa-search text-blue-400 text-xl"></i>
+            <h3 class="text-xl font-semibold text-white">Email Search & Filters</h3>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div class="lg:col-span-2">
+                <input type="text" 
+                       x-model="searchQuery" 
+                       @keyup.enter="searchEmails()"
+                       placeholder="Search emails (e.g., from:example@gmail.com, subject:important, is:unread)"
+                       class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-blue-400 focus:bg-white/20 transition-all">
+            </div>
+            <div class="flex gap-2">
+                <button @click="searchEmails()" 
+                        :disabled="isLoading"
+                        class="btn-primary px-6 py-3 disabled:opacity-50 flex-1">
+                    <i class="fas fa-search mr-2"></i>
+                    Search
+                </button>
+                <button @click="clearSearch()" 
+                        :disabled="isLoading"
+                        class="btn-secondary px-4 py-3 disabled:opacity-50">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="flex gap-2">
+                <button @click="loadUnreadEmails()" 
+                        :disabled="isLoading"
+                        class="btn-info px-4 py-3 disabled:opacity-50 flex-1">
+                    <i class="fas fa-envelope mr-2"></i>
+                    Unread
+                </button>
+                <button @click="loadTodayEmails()" 
+                        :disabled="isLoading"
+                        class="btn-warning px-4 py-3 disabled:opacity-50 flex-1">
+                    <i class="fas fa-calendar-day mr-2"></i>
+                    Today
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email List Section Header -->
+    <div x-show="connectionStatus.connected" class="glass-strong rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-inbox text-blue-400 text-xl"></i>
+                <h3 class="text-xl font-semibold text-white">Your Emails</h3>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-sm text-white/70">
+                    <span x-text="emails.length"></span> emails loaded
+                    <span x-show="nextPageToken" class="text-blue-400">(more available)</span>
+                </div>
+                <div class="flex gap-2">
+                    <button @click="toggleViewMode()" 
+                            class="btn-ghost px-3 py-2 text-sm">
+                        <i class="fas" :class="viewMode === 'compact' ? 'fa-list' : 'fa-th-list'" class="mr-1"></i>
+                        <span x-text="viewMode === 'compact' ? 'Detailed' : 'Compact'"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Email list will be inserted here -->
+        <div id="email-list-container">
+            {% include 'email_components/email_list.html' %}
+        </div>
+    </div>
+</div>

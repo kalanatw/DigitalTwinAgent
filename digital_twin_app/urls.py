@@ -72,8 +72,17 @@ urlpatterns = [
     path('email/connect/', gmail_views.gmail_connect, name='gmail_connect'),
     path('email/callback/', gmail_views.gmail_callback, name='gmail_callback'),
     path('email/disconnect/', gmail_views.gmail_disconnect, name='gmail_disconnect'),
+    path('email/reauthorize/', gmail_views.gmail_reauthorize, name='gmail_reauthorize'),
     path('api/gmail/status/', gmail_views.gmail_connection_status, name='gmail_status'),
     path('api/gmail/emails/', gmail_views.gmail_list_emails, name='gmail_list_emails'),
+    path('api/gmail/send/', gmail_views.send_email_api, name='gmail_send_email'),
+    path('api/gmail/check-scope/', gmail_views.gmail_check_scope_error, name='gmail_check_scope'),
+    
+    # Email reply generation API endpoints
+    path('api/email/generate-reply/', gmail_views.generate_email_reply_api, name='generate_email_reply'),
+    path('api/agents/active/', gmail_views.get_active_agent_api, name='get_active_agent'),
+    path('api/agents/list/', gmail_views.list_user_agents_api, name='list_user_agents'),
+    path('api/twins/versions/', gmail_views.list_twin_versions_api, name='list_twin_versions'),
     
     # Twin Version API endpoints (User-Centric)
     path('api/twin-versions/', user_centric_document_views.twin_version_list_view, name='twin_version_list'),

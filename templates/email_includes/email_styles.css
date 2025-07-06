@@ -1,0 +1,147 @@
+/* Email Management Styles */
+
+/* Force full width and prevent UI shrinking */
+body, html, main, .container, .main-content, .max-w-7xl {
+    max-width: 100vw !important;
+    width: 100% !important;
+}
+
+/* Reset any margin/padding constraints */
+body {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Override specific Tailwind max-width classes */
+.max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl, .max-w-3xl, .max-w-2xl, .max-w-xl, .max-w-lg, .max-w-md, .max-w-sm {
+    max-width: 100vw !important;
+}
+
+/* Ensure main container uses full width */
+.min-h-screen {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    padding: 1rem !important;
+}
+
+/* Override mx-auto centering for this page */
+.mx-auto {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* iPhone-style modal system */
+.modal-backdrop {
+    backdrop-filter: blur(20px);
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.modal-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.modal-handle {
+    width: 48px;
+    height: 6px;
+    background: rgba(156, 163, 175, 0.6);
+    border-radius: 3px;
+    margin: 0 auto;
+}
+
+/* Enhanced email list with tap targets */
+.email-card {
+    border-radius: 16px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+}
+
+.email-card:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+.email-card.selected {
+    border-color: rgba(59, 130, 246, 0.8);
+    background: rgba(59, 130, 246, 0.15);
+    transform: translateY(-1px) scale(1.01);
+}
+
+.email-card.unread {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(99, 102, 241, 0.1));
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.email-card.unread::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(to bottom, #3b82f6, #6366f1);
+    border-radius: 2px 0 0 2px;
+}
+
+/* Tab system for modal */
+.tab-content {
+    min-height: 400px;
+}
+
+.tab-button {
+    position: relative;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab-button.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #3b82f6, #6366f1);
+    border-radius: 2px 2px 0 0;
+}
+
+/* Smooth scrolling */
+.smooth-scroll {
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.smooth-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+/* Glass morphism effects */
+.glass-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+}
+
+/* Button animations */
+.btn-animate {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-animate:active {
+    transform: scale(0.95);
+}
+
+.search-section {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(10px);
+}

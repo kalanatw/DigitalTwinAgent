@@ -51,9 +51,40 @@ class EmailView(AuthRequiredTemplateView):
         except UserGmailConnection.DoesNotExist:
             pass
         
+        # Get active agent information
+        active_agent = None
+        agent_name = 'No Agent Active'
+        twin_version_name = None
+        
+        try:
+            from .models import AgentConfiguration
+            active_agent = AgentConfiguration.objects.filter(
+                user=self.request.user,
+                is_active=True
+            ).first()
+            
+            if active_agent:
+                agent_name = active_agent.name
+                # Get current twin version if available
+                if hasattr(active_agent, 'twin_version') and active_agent.twin_version:
+                    twin_version_name = active_agent.twin_version.name
+                elif hasattr(active_agent, 'current_twin_version'):
+                    twin_version_name = getattr(active_agent.current_twin_version, 'name', 'Default')
+                else:
+                    twin_version_name = 'Default'
+        except Exception as e:
+            # Log the error but don't break the page
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error getting active agent: {e}")
+        
         context.update({
             'has_gmail_connection': has_connection,
             'connected_email': connected_email,
+            'active_agent': active_agent,
+            'agent_id': active_agent.id if active_agent else '',
+            'agent_name': agent_name,
+            'twin_version_name': twin_version_name,
         })
         
         return context

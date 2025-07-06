@@ -1,0 +1,1917 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{% csrf_token %}
+<style>
+/* Force full width and prevent UI shrinking */
+body, html, main, .container, .main-content, .max-w-7xl {
+    max-width: 100vw !important;
+    width: 100% !important;
+}
+
+/* Reset any margin/padding constraints */
+body {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Override specific Tailwind max-width classes */
+.max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl, .max-w-3xl, .max-w-2xl, .max-w-xl, .max-w-lg, .max-w-md, .max-w-sm {
+    max-width: 100vw !important;
+}
+
+/* Ensure main container uses full width */
+.min-h-screen {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    padding: 1rem !important;
+}
+
+/* Override mx-auto centering for this page */
+.mx-auto {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* iPhone-style modal system */
+.modal-backdrop {
+    backdrop-filter: blur(20px);
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.modal-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.modal-handle {
+    width: 48px;
+    height: 6px;
+    background: rgba(156, 163, 175, 0.6);
+    border-radius: 3px;
+    margin: 0 auto;
+}
+
+/* Enhanced email list with tap targets */
+.email-card {
+    border-radius: 16px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+}
+
+.email-card:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+.email-card.selected {
+    border-color: rgba(59, 130, 246, 0.8);
+    background: rgba(59, 130, 246, 0.15);
+    transform: translateY(-1px) scale(1.01);
+}
+
+.email-card.unread {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(99, 102, 241, 0.1));
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.email-card.unread::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(to bottom, #3b82f6, #6366f1);
+    border-radius: 2px 0 0 2px;
+}
+
+/* Tab system for modal */
+.tab-content {
+    min-height: 400px;
+}
+
+.tab-button {
+    position: relative;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab-button.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #3b82f6, #6366f1);
+    border-radius: 2px 2px 0 0;
+}
+
+/* Smooth scrolling */
+.smooth-scroll {
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.smooth-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+/* Glass morphism effects */
+.glass-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+}
+
+/* Button animations */
+.btn-animate {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-animate:active {
+    transform: scale(0.95);
+}
+
+.search-section {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(10px);
+}
+</style>
+
+<div class="min-h-screen w-full p-4" x-data="emailManagementApp()">
+    <!-- Header Section -->
+    <div class="glass-strong rounded-2xl p-6 mb-6">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div class="flex-shrink-0">
+                <h2 class="text-3xl font-bold text-white mb-2">
+                    <i class="fab fa-google mr-3 text-red-400"></i>
+                    Gmail Email Management
+                </h2>
+                <p class="text-white/70">Connect your Gmail account and manage your emails with AI assistance</p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                {% if has_gmail_connection %}
+                    <button @click="refreshEmails()" 
+                            :disabled="isLoading"
+                            class="btn-secondary px-5 py-3 disabled:opacity-50 flex-shrink-0">
+                        <i class="fas fa-sync-alt mr-2" :class="{ 'fa-spin': isLoading }"></i>
+                        Refresh
+                    </button>
+                    <a href="{% url 'gmail_disconnect' %}" 
+                       class="btn-danger px-5 py-3 flex-shrink-0"
+                       onclick="return confirm('Are you sure you want to disconnect Gmail?')">
+                        <i class="fas fa-unlink mr-2"></i>
+                        Disconnect
+                    </a>
+                {% else %}
+                    <a href="{% url 'gmail_connect' %}" 
+                       class="btn-primary px-6 py-3 flex-shrink-0">
+                        <i class="fab fa-google mr-2"></i>
+                        Connect Gmail
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Connection Status -->
+        <div class="mt-6 p-4 rounded-xl" :class="connectionStatus.connected ? 'bg-green-500/20 border border-green-500/30' : 'bg-yellow-500/20 border border-yellow-500/30'">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0">
+                    <i class="fas text-xl" :class="connectionStatus.connected ? 'fa-check-circle text-green-400' : 'fa-exclamation-triangle text-yellow-400'"></i>
+                </div>
+                <div>
+                    <span class="text-white font-semibold text-lg">
+                        <span x-text="connectionStatus.connected ? 'Connected to Gmail' : 'Gmail Not Connected'"></span>
+                    </span>
+                    <div x-show="connectionStatus.connected && connectionStatus.email" class="text-white/70 text-sm mt-1">
+                        Account: <span x-text="connectionStatus.email" class="font-mono"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Active Agent Display -->
+        <div x-show="connectionStatus.connected" class="mt-6 p-4 rounded-xl bg-blue-500/20 border border-blue-500/30">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-robot text-2xl text-blue-400"></i>
+                    </div>
+                    <div>
+                        <div class="text-white font-semibold">
+                            Active Agent: <span x-text="activeAgent.name">{{ agent_name }}</span>
+                        </div>
+                        <div class="text-white/70 text-sm mt-1">
+                            Version: <span x-text="activeAgent.twin_version">{{ twin_version_name|default:"Default" }}</span>
+                        </div>
+                    </div>
+                </div>
+                <button @click="showAgentSelector()" class="btn-ghost px-4 py-2 text-sm">
+                    <i class="fas fa-cog mr-2"></i>
+                    Change Agent
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Section -->
+    <div x-show="connectionStatus.connected" class="search-section glass-strong rounded-2xl p-6 mb-6">
+        <div class="flex items-center gap-3 mb-4">
+            <i class="fas fa-search text-blue-400 text-xl"></i>
+            <h3 class="text-xl font-semibold text-white">Email Search & Filters</h3>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div class="lg:col-span-2">
+                <input type="text" 
+                       x-model="searchQuery" 
+                       @keyup.enter="searchEmails()"
+                       placeholder="Search emails (e.g., from:example@gmail.com, subject:important, is:unread)"
+                       class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-blue-400 focus:bg-white/20 transition-all">
+            </div>
+            <div class="flex gap-2">
+                <button @click="searchEmails()" 
+                        :disabled="isLoading"
+                        class="btn-primary px-6 py-3 disabled:opacity-50 flex-1">
+                    <i class="fas fa-search mr-2"></i>
+                    Search
+                </button>
+                <button @click="clearSearch()" 
+                        :disabled="isLoading"
+                        class="btn-secondary px-4 py-3 disabled:opacity-50">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="flex gap-2">
+                <button @click="loadUnreadEmails()" 
+                        :disabled="isLoading"
+                        class="btn-info px-4 py-3 disabled:opacity-50 flex-1">
+                    <i class="fas fa-envelope mr-2"></i>
+                    Unread
+                </button>
+                <button @click="loadTodayEmails()" 
+                        :disabled="isLoading"
+                        class="btn-warning px-4 py-3 disabled:opacity-50 flex-1">
+                    <i class="fas fa-calendar-day mr-2"></i>
+                    Today
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email List Section -->
+    <div x-show="connectionStatus.connected" class="glass-strong rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-inbox text-blue-400 text-xl"></i>
+                <h3 class="text-xl font-semibold text-white">Your Emails</h3>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-sm text-white/70">
+                    <span x-text="emails.length"></span> emails loaded
+                    <span x-show="nextPageToken" class="text-blue-400">(more available)</span>
+                </div>
+                <div class="flex gap-2">
+                    <button @click="toggleViewMode()" 
+                            class="btn-ghost px-3 py-2 text-sm">
+                        <i class="fas" :class="viewMode === 'compact' ? 'fa-list' : 'fa-th-list'" class="mr-1"></i>
+                        <span x-text="viewMode === 'compact' ? 'Detailed' : 'Compact'"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div x-show="isLoading" class="flex items-center justify-center py-12">
+            <div class="flex flex-col items-center gap-4 text-white/70">
+                <div class="w-12 h-12 border-4 border-blue-400/30 border-t-blue-400 rounded-full animate-spin"></div>
+                <span class="text-lg">Loading emails...</span>
+            </div>
+        </div>
+
+        <!-- Error Message -->
+        <div x-show="errorMessage" class="bg-red-500/20 border border-red-500/30 rounded-lg p-4 mb-6">
+            <div class="flex items-start gap-3 text-red-400">
+                <i class="fas fa-exclamation-circle text-xl mt-1"></i>
+                <div>
+                    <div class="font-semibold">Error</div>
+                    <div x-text="errorMessage" class="text-sm mt-1"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Email List -->
+        <div x-show="emails.length > 0 && !isLoading" class="space-y-4">
+            <template x-for="email in emails" :key="email.id">
+                <div @click="selectEmail(email)" 
+                     class="email-card relative p-5 hover:bg-white/10 cursor-pointer transition-all transform hover:scale-[1.02]"
+                     :class="{ 'unread': email.is_unread, 'selected': selectedEmail?.id === email.id }">
+                    
+                    <!-- Email Preview -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center space-x-3 mb-2">
+                                <div class="w-3 h-3 rounded-full" 
+                                     :class="email.is_unread ? 'bg-blue-400 animate-pulse' : 'bg-gray-400'"></div>
+                                <span class="text-white font-medium truncate" x-text="email.from"></span>
+                                <span class="text-white/50 text-sm" x-text="formatDate(email.date)"></span>
+                            </div>
+                            <h4 class="text-white font-semibold mb-1 truncate" x-text="email.subject || 'No Subject'"></h4>
+                            <p class="text-white/70 text-sm line-clamp-2" x-text="email.snippet"></p>
+                        </div>
+                        <div class="ml-4 opacity-60 group-hover:opacity-100 transition-opacity">
+                            <i class="fas fa-chevron-right text-white/50"></i>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- No Emails Message -->
+        <div x-show="emails.length === 0 && !isLoading && !errorMessage" class="text-center py-12">
+            <div class="flex flex-col items-center gap-4">
+                <i class="fas fa-inbox text-6xl text-white/20"></i>
+                <div>
+                    <p class="text-white/70 text-lg font-medium">No emails found</p>
+                    <p class="text-white/50 text-sm mt-2">Try connecting your Gmail account or adjusting your search criteria</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Load More Button -->
+        <div x-show="nextPageToken && !isLoading" class="text-center mt-8">
+            <button @click="loadMoreEmails()" 
+                    class="btn-secondary px-8 py-4 text-lg">
+                <i class="fas fa-plus mr-3"></i>
+                Load More Emails
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Unified Email Modal - Tab-Based Interface -->
+<div x-show="showEmailModal && selectedEmail && selectedEmail.id" 
+     x-transition:enter="transition ease-out duration-300 transform"
+     x-transition:enter-start="opacity-0 scale-95 translate-y-4"
+     x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+     x-transition:leave="transition ease-in duration-200 transform"
+     x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+     x-transition:leave-end="opacity-0 scale-95 translate-y-4"
+     class="fixed inset-0 z-50 overflow-hidden">
+    
+    <!-- Background overlay with blur effect -->
+    <div class="absolute inset-0 modal-backdrop" 
+         @click="closeEmailModal()"></div>
+    
+    <!-- Modal content - Unified Interface -->
+    <div class="relative flex items-center justify-center min-h-screen p-4">
+        <div class="modal-card w-full max-w-6xl max-h-[95vh] overflow-hidden">
+            
+            <!-- Header with email details -->
+            <div class="sticky top-0 bg-white/90 backdrop-blur-xl border-b border-gray-200/50 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3 flex-1 min-w-0">
+                        <button @click="closeEmailModal()" 
+                                class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-all btn-animate flex-shrink-0">
+                            <i class="fas fa-times text-gray-600"></i>
+                        </button>
+                        <div class="min-w-0 flex-1">
+                            <h2 class="text-lg font-semibold text-gray-900 truncate">
+                                <span x-text="selectedEmail?.subject || 'No Subject'"></span>
+                            </h2>
+                            <div class="flex items-center space-x-4 text-sm text-gray-600 mt-1">
+                                <span class="truncate">From: <span x-text="selectedEmail?.from"></span></span>
+                                <span x-text="formatDetailedDate(selectedEmail?.date)"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick action buttons -->
+                    <div class="flex items-center space-x-2 flex-shrink-0 ml-4">
+                        <button @click="activeTab = 'reply'; prepareReply()" 
+                                class="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white text-sm rounded-full hover:shadow-lg transform hover:scale-105 transition-all btn-animate">
+                            <i class="fas fa-reply mr-2"></i>
+                            Quick Reply
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Tab Navigation -->
+                <div class="flex space-x-1 mt-4 border-b border-gray-200">
+                    <button @click="activeTab = 'view'" 
+                            class="tab-button px-4 py-2 text-sm font-medium transition-all"
+                            :class="activeTab === 'view' ? 'text-blue-600 active' : 'text-gray-500 hover:text-gray-700'">
+                        <i class="fas fa-eye mr-2"></i>View
+                    </button>
+                    <button @click="activeTab = 'reply'; prepareReply()" 
+                            class="tab-button px-4 py-2 text-sm font-medium transition-all"
+                            :class="activeTab === 'reply' ? 'text-blue-600 active' : 'text-gray-500 hover:text-gray-700'">
+                        <i class="fas fa-reply mr-2"></i>Reply
+                    </button>
+                    <button @click="activeTab = 'forward'; prepareForward()" 
+                            class="tab-button px-4 py-2 text-sm font-medium transition-all"
+                            :class="activeTab === 'forward' ? 'text-blue-600 active' : 'text-gray-500 hover:text-gray-700'">
+                        <i class="fas fa-share mr-2"></i>Forward
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Tab Content Area -->
+            <div class="tab-content overflow-y-auto max-h-[calc(95vh-200px)] p-6 smooth-scroll">
+                
+                <!-- View Tab -->
+                <div x-show="activeTab === 'view'" x-transition.opacity.duration.200ms>
+                    <!-- Email metadata -->
+                    <div class="bg-gray-50/80 rounded-2xl p-4 mb-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <span class="font-medium text-gray-700">From:</span>
+                                <span class="ml-2 text-gray-900" x-text="selectedEmail?.from"></span>
+                            </div>
+                            <div>
+                                <span class="font-medium text-gray-700">Date:</span>
+                                <span class="ml-2 text-gray-900" x-text="formatDetailedDate(selectedEmail?.date)"></span>
+                            </div>
+                            <div class="md:col-span-2">
+                                <span class="font-medium text-gray-700">To:</span>
+                                <span class="ml-2 text-gray-900" x-text="selectedEmail?.to"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Email body -->
+                    <div class="prose prose-sm max-w-none">
+                        <div x-html="formatEmailBody(selectedEmail?.body_html || selectedEmail?.body_text || selectedEmail?.snippet)" 
+                             class="text-gray-800 leading-relaxed bg-white rounded-xl p-6 shadow-sm border border-gray-100"></div>
+                    </div>
+                </div>
+                
+                <!-- Reply Tab -->
+                <div x-show="activeTab === 'reply'" x-transition.opacity.duration.200ms>
+                    <!-- AI Agent Selection Panel -->
+                    <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-6 mb-6 border border-purple-200">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                            <i class="fas fa-robot text-purple-500 mr-2"></i>
+                            AI Response Generation
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <!-- Agent Selection -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Agent:</label>
+                                <select x-model="selectedAgentId" @change="loadTwinVersions()" 
+                                        class="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <template x-for="agent in availableAgents" :key="agent.id">
+                                        <option :value="agent.id" x-text="agent.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            
+                            <!-- Twin Version Selection -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Version:</label>
+                                <select x-model="selectedTwinVersionId" 
+                                        class="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <template x-for="version in availableTwinVersions" :key="version.id">
+                                        <option :value="version.id" x-text="version.name + ' (v' + version.version + ')'"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            
+                            <!-- Response Tone -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Tone:</label>
+                                <select x-model="selectedTone" 
+                                        class="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <template x-for="tone in replyTones" :key="tone.value">
+                                        <option :value="tone.value" x-text="tone.label"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Generation Controls -->
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <label class="flex items-center">
+                                    <input type="checkbox" x-model="includeContext" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                    <span class="ml-2 text-sm text-gray-700">Include original email</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" x-model="includeHistory" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                    <span class="ml-2 text-sm text-gray-700">Include thread history</span>
+                                </label>
+                            </div>
+                            
+                            <button @click="generateAIReply()" 
+                                    :disabled="!selectedAgentId || !selectedTwinVersionId || isGenerating"
+                                    class="px-6 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-xl font-medium hover:shadow-lg disabled:opacity-50 transition-all btn-animate">
+                                <span x-show="!isGenerating">
+                                    <i class="fas fa-magic mr-2"></i>Generate Response
+                                </span>
+                                <span x-show="isGenerating">
+                                    <i class="fas fa-spinner fa-spin mr-2"></i>Generating...
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Email Composition Form -->
+                    <div class="bg-white rounded-2xl border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                            <i class="fas fa-edit text-green-500 mr-2"></i>
+                            Compose Reply
+                        </h3>
+                        
+                        <!-- Email Headers -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">From:</label>
+                                <input type="email" x-model="composeData.from" readonly
+                                       class="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-700 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">To:</label>
+                                <input type="email" x-model="composeData.to" required
+                                       class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">CC:</label>
+                                <input type="text" x-model="composeData.cc" 
+                                       placeholder="Separate multiple emails with commas"
+                                       class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">BCC:</label>
+                                <input type="text" x-model="composeData.bcc" 
+                                       placeholder="Separate multiple emails with commas"
+                                       class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Subject:</label>
+                            <input type="text" x-model="composeData.subject" required
+                                   class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <!-- Email Body Editor -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Message:</label>
+                            <div x-ref="emailBody" 
+                                 contenteditable="true"
+                                 @input="composeData.body = $refs.emailBody.innerHTML"
+                                 class="w-full min-h-80 px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 prose prose-sm max-w-none"
+                                 style="min-height: 300px; max-height: 400px; overflow-y: auto;">
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="flex justify-between items-center">
+                            <button @click="saveDraft()" 
+                                    class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all btn-animate">
+                                <i class="fas fa-save mr-2"></i>Save Draft
+                            </button>
+                            
+                            <div class="flex space-x-3">
+                                <button @click="previewEmail()" 
+                                        class="px-4 py-2 bg-blue-100 text-blue-700 rounded-xl hover:bg-blue-200 transition-all btn-animate">
+                                    <i class="fas fa-eye mr-2"></i>Preview
+                                </button>
+                                <button @click="sendEmail()" 
+                                        :disabled="isSending || !composeData.to || !composeData.subject || !composeData.body"
+                                        class="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all btn-animate">
+                                    <i :class="isSending ? 'fas fa-spinner fa-spin' : 'fas fa-paper-plane'" class="mr-2"></i>
+                                    <span x-text="isSending ? 'Sending...' : 'Send Email'"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Forward Tab -->
+                <div x-show="activeTab === 'forward'" x-transition.opacity.duration.200ms>
+                    <!-- Email Composition Form for Forward -->
+                    <div class="bg-white rounded-2xl border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                            <i class="fas fa-share text-blue-500 mr-2"></i>
+                            Forward Email
+                        </h3>
+                        
+                        <!-- Forward Headers -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">From:</label>
+                                <input type="email" x-model="forwardData.from" readonly
+                                       :value="connectionStatus.email"
+                                       class="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-700 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">To:</label>
+                                <input type="email" x-model="forwardData.to" required
+                                       placeholder="Enter recipient email"
+                                       class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">CC:</label>
+                                <input type="text" x-model="forwardData.cc" 
+                                       placeholder="Separate multiple emails with commas"
+                                       class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">BCC:</label>
+                                <input type="text" x-model="forwardData.bcc" 
+                                       placeholder="Separate multiple emails with commas"
+                                       class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Subject:</label>
+                            <input type="text" x-model="forwardData.subject" required
+                                   :value="`Fwd: ${selectedEmail?.subject || 'No Subject'}`"
+                                   class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        
+                        <!-- Forward Message and Original Email -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Your Message:</label>
+                            <div x-ref="forwardMessage" 
+                                 contenteditable="true"
+                                 @input="forwardData.message = $refs.forwardMessage.innerHTML"
+                                 class="w-full min-h-24 px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 prose prose-sm max-w-none"
+                                 placeholder="Add your message here..."
+                                 style="min-height: 100px; max-height: 200px; overflow-y: auto;">
+                            </div>
+                        </div>
+                        
+                        <!-- Original Email Preview -->
+                        <div class="bg-gray-50 rounded-xl p-4 mb-6 border-l-4 border-blue-500">
+                            <h4 class="text-sm font-semibold text-gray-900 mb-3">---------- Forwarded message ----------</h4>
+                            <div class="text-sm text-gray-700 space-y-1">
+                                <div><span class="font-medium">From:</span> <span x-text="selectedEmail?.from"></span></div>
+                                <div><span class="font-medium">Date:</span> <span x-text="formatDetailedDate(selectedEmail?.date)"></span></div>
+                                <div><span class="font-medium">Subject:</span> <span x-text="selectedEmail?.subject"></span></div>
+                                <div><span class="font-medium">To:</span> <span x-text="selectedEmail?.to"></span></div>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-gray-200">
+                                <div x-html="formatEmailBody(selectedEmail?.body_html || selectedEmail?.body_text || selectedEmail?.snippet)" 
+                                     class="text-gray-700 leading-relaxed prose prose-sm max-w-none"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="flex justify-between items-center">
+                            <button @click="saveForwardDraft()" 
+                                    class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all btn-animate">
+                                <i class="fas fa-save mr-2"></i>Save Draft
+                            </button>
+                            
+                            <div class="flex space-x-3">
+                                <button @click="previewForward()" 
+                                        class="px-4 py-2 bg-blue-100 text-blue-700 rounded-xl hover:bg-blue-200 transition-all btn-animate">
+                                    <i class="fas fa-eye mr-2"></i>Preview
+                                </button>
+                                <button @click="sendForward()" 
+                                        :disabled="isSending || !forwardData.to"
+                                        class="px-6 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all btn-animate">
+                                    <i :class="isSending ? 'fas fa-spinner fa-spin' : 'fas fa-share'" class="mr-2"></i>
+                                    <span x-text="isSending ? 'Sending...' : 'Forward Email'"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AI Agent Selection Modal - Slide up from bottom (iOS style) -->
+<div x-show="showAgentSelector" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="fixed inset-0 z-60 overflow-hidden">
+    
+    <div class="absolute inset-0 modal-backdrop" @click="closeAgentSelector()"></div>
+    
+    <!-- Slide up panel -->
+    <div class="absolute bottom-0 left-0 right-0"
+         x-transition:enter="transition ease-out duration-300 transform"
+         x-transition:enter-start="translate-y-full"
+         x-transition:enter-end="translate-y-0"
+         x-transition:leave="transition ease-in duration-200 transform"
+         x-transition:leave-start="translate-y-0"
+         x-transition:leave-end="translate-y-full">
+        
+        <div class="modal-card rounded-t-3xl rounded-b-none">
+            <!-- Handle for drag gesture -->
+            <div class="flex justify-center pt-4 pb-2">
+                <div class="modal-handle"></div>
+            </div>
+            
+            <div class="px-6 py-4">
+                <h3 class="text-xl font-semibold text-gray-900 mb-6 text-center">
+                    <i class="fas fa-robot text-purple-500 mr-2"></i>
+                    Select AI Agent
+                </h3>
+                
+                <!-- Current active agent display -->
+                <div class="bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-2xl p-4 mb-6 border border-purple-200">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-robot text-white"></i>
+                        </div>
+                        <div>
+                            <div class="font-medium text-gray-900" x-text="activeAgent.name">Current Agent</div>
+                            <div class="text-sm text-gray-600" x-text="'Version: ' + activeAgent.twin_version">Version Info</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Agent selection grid -->
+                <div class="space-y-3 mb-6 max-h-64 overflow-y-auto smooth-scroll">
+                    <template x-for="agent in availableAgents" :key="agent.id">
+                        <button @click="selectAgentForReply(agent)" 
+                                class="w-full text-left p-4 rounded-2xl border-2 transition-all hover:shadow-md btn-animate"
+                                :class="selectedAgentId === agent.id ? 
+                                    'border-purple-500 bg-purple-50' : 
+                                    'border-gray-200 hover:border-gray-300'">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-gradient-to-r from-gray-400 to-gray-600 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-user-robot text-white text-sm"></i>
+                                </div>
+                                <div>
+                                    <div class="font-medium text-gray-900" x-text="agent.name"></div>
+                                    <div class="text-xs text-gray-600" x-text="agent.expertise || 'AI Assistant'"></div>
+                                </div>
+                                <div class="ml-auto">
+                                    <i class="fas fa-check text-purple-500" x-show="selectedAgentId === agent.id"></i>
+                                </div>
+                            </div>
+                        </button>
+                    </template>
+                </div>
+                
+                <!-- Twin version selection -->
+                <div x-show="selectedAgentId" class="space-y-3 mb-6">
+                    <h4 class="font-medium text-gray-900">Select Version:</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <template x-for="version in availableTwinVersions" :key="version.id">
+                            <button @click="selectedTwinVersionId = version.id" 
+                                    class="p-3 rounded-xl border-2 text-sm transition-all btn-animate"
+                                    :class="selectedTwinVersionId === version.id ? 
+                                        'border-blue-500 bg-blue-50 text-blue-900' : 
+                                        'border-gray-200 hover:border-gray-300'">
+                                <div class="font-medium" x-text="version.name"></div>
+                                <div class="text-xs opacity-75" x-text="'v' + version.version"></div>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+                
+                <!-- Reply tone selection -->
+                <div class="space-y-3 mb-6">
+                    <h4 class="font-medium text-gray-900">Reply Tone:</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <template x-for="tone in replyTones" :key="tone.value">
+                            <button @click="selectedTone = tone.value" 
+                                    class="p-3 rounded-xl border-2 text-sm transition-all btn-animate"
+                                    :class="selectedTone === tone.value ? 
+                                        'border-green-500 bg-green-50 text-green-900' : 
+                                        'border-gray-200 hover:border-gray-300'">
+                                <i :class="tone.icon" class="mr-2"></i>
+                                <span x-text="tone.label"></span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+                
+                <!-- Action buttons -->
+                <div class="flex space-x-3 pb-safe">
+                    <button @click="closeAgentSelector()" 
+                            class="flex-1 py-3 px-4 bg-gray-100 text-gray-700 rounded-2xl font-medium hover:bg-gray-200 transition-all btn-animate">
+                        Cancel
+                    </button>
+                    <button @click="generateAIReply()" 
+                            :disabled="!selectedAgentId || !selectedTwinVersionId || isGenerating"
+                            class="flex-1 py-3 px-4 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-2xl font-medium hover:shadow-lg disabled:opacity-50 transition-all btn-animate">
+                        <span x-show="!isGenerating">
+                            <i class="fas fa-magic mr-2"></i>Generate Reply
+                        </span>
+                        <span x-show="isGenerating">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>Generating...
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Compose Modal - Full screen on mobile, centered on desktop -->
+<div x-show="showComposeModal" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     class="fixed inset-0 z-70">
+    
+    <div class="absolute inset-0 modal-backdrop" @click="showComposeModal = false"></div>
+    
+    <div class="flex items-end md:items-center justify-center min-h-screen p-0 md:p-4">
+        <div class="modal-card w-full md:max-w-4xl md:rounded-3xl overflow-hidden"
+             x-transition:enter="transition ease-out duration-300 transform"
+             x-transition:enter-start="translate-y-full md:translate-y-0 md:scale-95 md:opacity-0"
+             x-transition:enter-end="translate-y-0 md:translate-y-0 md:scale-100 md:opacity-100">
+            
+            <!-- Compose header -->
+            <div class="bg-gradient-to-r from-purple-500 to-blue-500 px-6 py-4 text-white">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold">
+                        <i class="fas fa-edit mr-2"></i>Edit & Send Reply
+                    </h3>
+                    <button @click="showComposeModal = false" 
+                            class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-all btn-animate">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Compose body with smooth scrolling -->
+            <div class="overflow-y-auto max-h-[calc(100vh-140px)] md:max-h-[70vh] bg-white p-6 smooth-scroll">
+                <!-- Email Headers -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">From:</label>
+                        <input type="email" x-model="composeData.from" readonly
+                               class="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-700 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">To:</label>
+                        <input type="email" x-model="composeData.to" required
+                               class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">CC:</label>
+                        <input type="text" x-model="composeData.cc" 
+                               placeholder="Separate multiple emails with commas"
+                               class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">BCC:</label>
+                        <input type="text" x-model="composeData.bcc" 
+                               placeholder="Separate multiple emails with commas"
+                               class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block text-gray-700 font-medium mb-2">Subject:</label>
+                    <input type="text" x-model="composeData.subject" required
+                           class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <!-- Email Body -->
+                <div class="mb-6">
+                    <label class="block text-gray-700 font-medium mb-2">Message:</label>
+                    <div x-ref="emailBody" 
+                         contenteditable="true"
+                         @input="composeData.body = $refs.emailBody.innerHTML"
+                         class="w-full min-h-80 px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 prose prose-sm max-w-none"
+                         style="min-height: 320px; max-height: 400px; overflow-y: auto;">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Action footer -->
+            <div class="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4">
+                <div class="flex justify-between space-x-3">
+                    <button @click="saveDraft()" 
+                            class="px-4 py-2 bg-gray-100 text-gray-700 rounded-2xl hover:bg-gray-200 transition-all btn-animate">
+                        <i class="fas fa-save mr-2"></i>Save Draft
+                    </button>
+                    <button @click="sendEmail()" 
+                            :disabled="isSending"
+                            class="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl hover:shadow-lg disabled:opacity-50 transition-all btn-animate">
+                        <i :class="isSending ? 'fas fa-spinner fa-spin' : 'fas fa-paper-plane'" class="mr-2"></i>
+                        <span x-text="isSending ? 'Sending...' : 'Send Email'"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function emailManagementApp() {
+    return {
+        // State
+        isLoading: false,
+        errorMessage: '',
+        searchQuery: '',
+        emails: [],
+        nextPageToken: null,
+        viewMode: 'detailed', // 'compact' or 'detailed'
+        connectionStatus: {
+            connected: {{ has_gmail_connection|yesno:"true,false" }},
+            email: '{{ connected_email|default:"" }}'
+        },
+
+        // Agent and Twin data
+        activeAgent: {
+            id: '{{ agent_id|default:"" }}',
+            name: '{{ agent_name|default:"No Agent Selected" }}',
+            twin_version: '{{ twin_version_name|default:"Default" }}'
+        },
+        availableAgents: [],
+        availableTwinVersions: [],
+        selectedAgent: '',
+        selectedTwinVersion: '',
+        selectedTone: 'professional',
+        additionalContext: '',
+
+        // Modal states
+        selectedEmail: null,
+        selectedEmailId: null,
+        showEmailModal: false,
+        showAgentSelector: false,
+        showComposeModal: false,
+        
+        // Agent selection state
+        selectedAgentId: null,
+        selectedTwinVersionId: null,
+        
+        // UI state
+        isTransitioning: false,
+        lastScrollPosition: 0,
+        isGenerating: false,
+        
+        // Reply tones with icons
+        replyTones: [
+            { value: 'professional', label: 'Professional', icon: 'fas fa-briefcase' },
+            { value: 'friendly', label: 'Friendly', icon: 'fas fa-smile' },
+            { value: 'formal', label: 'Formal', icon: 'fas fa-user-tie' },
+            { value: 'casual', label: 'Casual', icon: 'fas fa-coffee' }
+        ],
+
+        // Compose data
+        composeData: {
+            from: '',
+            to: '',
+            cc: '',
+            bcc: '',
+            subject: '',
+            body: '',
+            emailId: ''
+        },
+
+        // Forward data
+        forwardData: {
+            from: '',
+            to: '',
+            cc: '',
+            bcc: '',
+            subject: '',
+            message: '',
+            emailId: ''
+        },
+
+        // Loading states
+        isSendingEmail: false,
+
+        // Tab management
+        activeTab: 'view', // 'view', 'reply', 'forward'
+        
+        // Options for reply generation
+        includeContext: true,
+        includeHistory: false,
+        isSending: false,
+
+        // Initialize
+        init() {
+            console.log('Initializing email management app...');
+            this.selectedEmail = null;
+            this.selectedEmailId = null;
+            this.showEmailModal = false;
+            this.activeTab = 'view';
+            
+            this.checkConnectionStatus();
+            this.loadActiveAgent();
+            if (this.connectionStatus.connected) {
+                this.loadEmails();
+            }
+            console.log('Initial state:', {
+                selectedEmail: this.selectedEmail,
+                showEmailModal: this.showEmailModal,
+                activeTab: this.activeTab
+            });
+        },
+
+        // Select email and open modal
+        selectEmail(email) {
+            console.log('Selecting email:', email);
+            if (!email || !email.id) {
+                console.error('Invalid email object:', email);
+                return;
+            }
+            
+            // Ensure we don't open modal if emails are loading
+            if (this.isLoading) {
+                console.log('Still loading emails, ignoring selection');
+                return;
+            }
+            
+            this.selectedEmail = email;
+            this.selectedEmailId = email.id;
+            this.activeTab = 'view'; // Start with view tab
+            this.showEmailModal = true;
+            
+            console.log('Email selected, modal should open:', {
+                selectedEmail: this.selectedEmail,
+                showEmailModal: this.showEmailModal,
+                activeTab: this.activeTab,
+                modalCondition: !!(this.showEmailModal && this.selectedEmail && this.selectedEmail.id)
+            });
+            
+            // Debug: Check modal element after state change
+            setTimeout(() => {
+                const modalElement = document.querySelector('[x-show*="showEmailModal"]');
+                console.log('Modal element after selection:', {
+                    element: modalElement,
+                    style: modalElement ? modalElement.style.display : 'no element',
+                    computed: modalElement ? window.getComputedStyle(modalElement).display : 'no element'
+                });
+            }, 100);
+            
+            // Prevent background scrolling
+            document.body.style.overflow = 'hidden';
+            
+            // Mark as read if unread (temporarily disabled due to missing API endpoint)
+            // if (email.is_unread) {
+            //     this.markAsRead(email);
+            // }
+        },
+
+        // Enhanced email interaction
+        async openEmailModal(email) {
+            console.log('openEmailModal called with:', email);
+            if (this.isTransitioning) return;
+            
+            this.isTransitioning = true;
+            this.selectedEmail = email;
+            this.selectedEmailId = email.id;
+            this.showEmailModal = true;
+            
+            console.log('Modal state:', {
+                selectedEmail: this.selectedEmail,
+                selectedEmailId: this.selectedEmailId,
+                showEmailModal: this.showEmailModal
+            });
+            
+            // Mark as read if unread (temporarily disabled due to missing API endpoint)
+            // if (email.is_unread) {
+            //     await this.markAsRead(email);
+            // }
+            
+            // Store scroll position
+            this.lastScrollPosition = window.scrollY;
+            
+            // Prevent background scrolling
+            document.body.style.overflow = 'hidden';
+            
+            setTimeout(() => {
+                this.isTransitioning = false;
+            }, 300);
+        },
+        
+        closeEmailModal() {
+            if (this.isTransitioning) return;
+            
+            this.isTransitioning = true;
+            this.showEmailModal = false;
+            
+            // Restore background scrolling
+            document.body.style.overflow = '';
+            
+            // Restore scroll position
+            window.scrollTo(0, this.lastScrollPosition);
+            
+            setTimeout(() => {
+                this.selectedEmail = null;
+                this.selectedEmailId = null;
+                this.activeTab = 'view'; // Reset to view tab
+                this.isTransitioning = false;
+            }, 200);
+        },
+
+        // Prepare reply tab
+        prepareReply() {
+            if (!this.selectedEmail) return;
+            
+            // Set up compose data for reply
+            this.composeData = {
+                from: this.connectionStatus.email || '',
+                to: this.selectedEmail.from || '',
+                cc: '',
+                bcc: '',
+                subject: this.selectedEmail.subject?.startsWith('Re:') ? 
+                    this.selectedEmail.subject : 
+                    `Re: ${this.selectedEmail.subject || 'No Subject'}`,
+                body: '',
+                emailId: this.selectedEmail.id
+            };
+            
+            // Load agents and twin versions if not already loaded
+            if (this.availableAgents.length === 0) {
+                this.loadAgents();
+            }
+            if (this.availableTwinVersions.length === 0) {
+                this.loadTwinVersions();
+            }
+            
+            // Set default selections
+            this.selectedAgentId = this.activeAgent.id;
+            this.selectedTone = 'professional';
+        },
+
+        // Prepare forward tab
+        prepareForward() {
+            if (!this.selectedEmail) return;
+            
+            // Set up forward data
+            this.forwardData = {
+                from: this.connectionStatus.email || '',
+                to: '',
+                cc: '',
+                bcc: '',
+                subject: `Fwd: ${this.selectedEmail.subject || 'No Subject'}`,
+                message: '',
+                emailId: this.selectedEmail.id
+            };
+        },
+        
+        // AI Reply workflow
+        async initiateAIReply() {
+            if (!this.selectedEmail) return;
+            
+            // Load available agents and versions
+            await this.loadAgents();
+            await this.loadTwinVersions();
+            
+            // Set defaults to current active agent
+            this.selectedAgentId = this.activeAgent.id;
+            this.selectedTwinVersionId = this.activeAgent.twin_version_id;
+            
+            this.showAgentSelector = true;
+        },
+        
+        closeAgentSelector() {
+            this.showAgentSelector = false;
+            this.selectedAgentId = null;
+            this.selectedTwinVersionId = null;
+            this.selectedTone = 'professional';
+        },
+        
+        selectAgentForReply(agent) {
+            this.selectedAgentId = agent.id;
+            // Auto-load twin versions for this agent
+            this.loadTwinVersions();
+        },
+        
+        async generateAIReply() {
+            this.isGenerating = true;
+            
+            try {
+                const response = await fetch('/api/email/generate-reply/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({
+                        email_id: this.selectedEmail.id,
+                        agent_id: this.selectedAgentId,
+                        twin_version_id: this.selectedTwinVersionId,
+                        tone: this.selectedTone,
+                        include_context: true
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update compose body with generated content
+                    this.composeData.body = data.reply_data.body;
+                    
+                    // Update the contenteditable div if it exists
+                    setTimeout(() => {
+                        const emailBody = this.$refs.emailBody;
+                        if (emailBody) {
+                            emailBody.innerHTML = data.reply_data.body;
+                        }
+                    }, 100);
+                    
+                    this.showNotification('AI reply generated successfully!', 'success');
+                } else {
+                    this.showNotification(data.error, 'error');
+                }
+            } catch (error) {
+                this.showNotification('Failed to generate reply', 'error');
+            } finally {
+                this.isGenerating = false;
+            }
+        },
+        
+        openComposeModal(replyData) {
+            // Set compose data with generated content
+            this.composeData = {
+                from: replyData.from || this.connectionStatus.email,
+                to: replyData.to,
+                cc: replyData.cc || '',
+                bcc: replyData.bcc || '',
+                subject: replyData.subject,
+                body: replyData.body,
+                emailId: this.selectedEmail.id
+            };
+            
+            this.showComposeModal = true;
+            
+            // Set the email body content after modal opens
+            setTimeout(() => {
+                if (this.$refs.emailBody) {
+                    this.$refs.emailBody.innerHTML = replyData.body;
+                }
+            }, 100);
+        },
+        
+        async markAsRead(email) {
+            try {
+                // Get CSRF token from meta tag or cookie
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                                 document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+                                 this.getCsrfToken();
+                
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                
+                if (csrfToken) {
+                    headers['X-CSRFToken'] = csrfToken;
+                }
+                
+                // Mark email as read via API
+                const response = await fetch(`/api/gmail/emails/${email.id}/mark-read/`, {
+                    method: 'POST',
+                    headers: headers
+                });
+                
+                if (response.ok) {
+                    email.is_unread = false;
+                }
+            } catch (error) {
+                console.error('Error marking email as read:', error);
+                // Don't fail the modal opening if mark as read fails
+            }
+        },
+
+        // Helper function to get CSRF token from cookies
+        getCsrfToken() {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'csrftoken') {
+                    return value;
+                }
+            }
+            return null;
+        },
+
+        // Check Gmail connection status
+        async checkConnectionStatus() {
+            try {
+                const response = await fetch('/api/gmail/status/');
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.connectionStatus = {
+                        connected: data.connected,
+                        email: data.email || '',
+                        scopes: data.scopes || [],
+                        tokenExpired: data.token_expired || false
+                    };
+                }
+            } catch (error) {
+                console.error('Error checking connection status:', error);
+            }
+        },
+
+        // Load emails
+        async loadEmails(pageToken = null) {
+            this.isLoading = true;
+            this.errorMessage = '';
+
+            try {
+                const params = new URLSearchParams({
+                    max_results: '20',
+                    ...(this.searchQuery && { query: this.searchQuery }),
+                    ...(pageToken && { page_token: pageToken })
+                });
+
+                const response = await fetch(`/api/gmail/emails/?${params}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    if (pageToken) {
+                        this.emails.push(...data.data.emails);
+                    } else {
+                        this.emails = data.data.emails;
+                    }
+                    this.nextPageToken = data.data.next_page_token;
+                } else {
+                    this.errorMessage = data.error || 'Failed to load emails';
+                    if (data.error === 'Gmail not connected') {
+                        this.connectionStatus.connected = false;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading emails:', error);
+                this.errorMessage = 'Network error loading emails';
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        // Quick filter functions
+        async loadUnreadEmails() {
+            this.searchQuery = 'is:unread';
+            this.nextPageToken = null;
+            await this.loadEmails();
+        },
+
+        async loadTodayEmails() {
+            const today = new Date().toISOString().split('T')[0];
+            this.searchQuery = `after:${today}`;
+            this.nextPageToken = null;
+            await this.loadEmails();
+        },
+
+        // Refresh emails
+        async refreshEmails() {
+            this.nextPageToken = null;
+            await this.loadEmails();
+        },
+
+        // Search emails
+        async searchEmails() {
+            this.nextPageToken = null;
+            await this.loadEmails();
+        },
+
+        // Clear search
+        async clearSearch() {
+            this.searchQuery = '';
+            this.nextPageToken = null;
+            await this.loadEmails();
+        },
+
+        // Load more emails
+        async loadMoreEmails() {
+            if (this.nextPageToken) {
+                await this.loadEmails(this.nextPageToken);
+            }
+        },
+
+        // Toggle view mode
+        async sendEmail() {
+            if (!this.composeData.to || !this.composeData.subject || !this.composeData.body) {
+                this.showNotification('Please fill in all required fields', 'error');
+                return;
+            }
+
+            this.isSending = true;
+            
+            try {
+                const response = await fetch('/api/gmail/send/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({
+                        to: this.composeData.to,
+                        cc: this.composeData.cc,
+                        bcc: this.composeData.bcc,
+                        subject: this.composeData.subject,
+                        body: this.composeData.body,
+                        reply_to_id: this.composeData.emailId
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.showNotification('Email sent successfully!', 'success');
+                    this.closeEmailModal();
+                    this.refreshEmails(); // Refresh email list
+                } else {
+                    this.showNotification(data.error || 'Failed to send email', 'error');
+                }
+            } catch (error) {
+                console.error('Error sending email:', error);
+                this.showNotification('Network error sending email', 'error');
+            } finally {
+                this.isSending = false;
+            }
+        },
+
+        async saveDraft() {
+            try {
+                const response = await fetch('/api/gmail/draft/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({
+                        to: this.composeData.to,
+                        cc: this.composeData.cc,
+                        bcc: this.composeData.bcc,
+                        subject: this.composeData.subject,
+                        body: this.composeData.body,
+                        reply_to_id: this.composeData.emailId
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.showNotification('Draft saved successfully!', 'success');
+                } else {
+                    this.showNotification(data.error || 'Failed to save draft', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving draft:', error);
+                this.showNotification('Network error saving draft', 'error');
+            }
+        },
+
+        previewEmail() {
+            // For now, just show the compose modal
+            alert(`Preview:\n\nTo: ${this.composeData.to}\nCC: ${this.composeData.cc}\nSubject: ${this.composeData.subject}\n\nBody: ${this.composeData.body}`);
+        },
+
+        // Forward functions
+        async sendForward() {
+            if (!this.forwardData.to) {
+                this.showNotification('Please enter a recipient email', 'error');
+                return;
+            }
+
+            this.isSending = true;
+            
+            // Combine forward message with original email
+            const fullBody = `${this.forwardData.message || ''}\n\n---------- Forwarded message ----------\nFrom: ${this.selectedEmail.from}\nDate: ${this.formatDetailedDate(this.selectedEmail.date)}\nSubject: ${this.selectedEmail.subject}\nTo: ${this.selectedEmail.to}\n\n${this.selectedEmail.body_text || this.selectedEmail.snippet}`;
+            
+            try {
+                const response = await fetch('/api/gmail/send/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({
+                        to: this.forwardData.to,
+                        cc: this.forwardData.cc,
+                        bcc: this.forwardData.bcc,
+                        subject: `Fwd: ${this.selectedEmail.subject}`,
+                        body: fullBody
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.showNotification('Email forwarded successfully!', 'success');
+                    this.closeEmailModal();
+                    this.refreshEmails();
+                } else {
+                    this.showNotification(data.error || 'Failed to forward email', 'error');
+                }
+            } catch (error) {
+                console.error('Error forwarding email:', error);
+                this.showNotification('Network error forwarding email', 'error');
+            } finally {
+                this.isSending = false;
+            }
+        },
+
+        async saveForwardDraft() {
+            const fullBody = `${this.forwardData.message || ''}\n\n---------- Forwarded message ----------\nFrom: ${this.selectedEmail.from}\nDate: ${this.formatDetailedDate(this.selectedEmail.date)}\nSubject: ${this.selectedEmail.subject}\nTo: ${this.selectedEmail.to}\n\n${this.selectedEmail.body_text || this.selectedEmail.snippet}`;
+            
+            try {
+                const response = await fetch('/api/gmail/draft/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({
+                        to: this.forwardData.to,
+                        cc: this.forwardData.cc,
+                        bcc: this.forwardData.bcc,
+                        subject: `Fwd: ${this.selectedEmail.subject}`,
+                        body: fullBody
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.showNotification('Forward draft saved successfully!', 'success');
+                } else {
+                    this.showNotification(data.error || 'Failed to save forward draft', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving forward draft:', error);
+                this.showNotification('Network error saving forward draft', 'error');
+            }
+        },
+
+        previewForward() {
+            const fullBody = `${this.forwardData.message || ''}\n\n---------- Forwarded message ----------\nFrom: ${this.selectedEmail.from}\nDate: ${this.formatDetailedDate(this.selectedEmail.date)}\nSubject: ${this.selectedEmail.subject}\nTo: ${this.selectedEmail.to}\n\n${this.selectedEmail.body_text || this.selectedEmail.snippet}`;
+            
+            alert(`Forward Preview:\n\nTo: ${this.forwardData.to}\nCC: ${this.forwardData.cc}\nSubject: Fwd: ${this.selectedEmail.subject}\n\nBody: ${fullBody}`);
+        },
+
+        // Show notification helper
+        showNotification(message, type = 'info') {
+            // You can implement a proper notification system here
+            // For now, using console and alert
+            console.log(`${type.toUpperCase()}: ${message}`);
+            if (type === 'error') {
+                alert(`Error: ${message}`);
+            }
+        },
+
+        // Toggle email detail
+        toggleEmailDetail(email) {
+            email.showDetail = !email.showDetail;
+        },
+
+        // Format date for display
+        formatDate(dateString) {
+            try {
+                const date = new Date(dateString);
+                const now = new Date();
+                const diffMs = now - date;
+                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                const diffDays = Math.floor(diffHours / 24);
+
+                if (diffHours < 1) {
+                    return 'Just now';
+                } else if (diffHours < 24) {
+                    return `${diffHours}h ago`;
+                } else if (diffDays < 7) {
+                    return `${diffDays}d ago`;
+                } else {
+                    return date.toLocaleDateString();
+                }
+            } catch (error) {
+                return dateString;
+            }
+        },
+
+        // Format detailed date
+        formatDetailedDate(dateString) {
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleString();
+            } catch (error) {
+                return dateString;
+            }
+        },
+
+        // Format email body
+        formatEmailBody(body) {
+            if (!body) return 'No content available';
+            
+            // Basic HTML sanitization and formatting
+            let formatted = body
+                .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove scripts
+                .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '') // Remove styles
+                .replace(/style="[^"]*"/gi, '') // Remove inline styles
+                .replace(/class="[^"]*"/gi, ''); // Remove classes
+            
+            // If it's too long, truncate it
+            if (formatted.length > 2000) {
+                formatted = formatted.substring(0, 2000) + '...';
+            }
+            
+            return formatted;
+        },
+
+        // Agent and Reply Functions
+        async loadAgents() {
+            try {
+                const response = await fetch('/api/agents/list/');
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.availableAgents = data.agents;
+                } else {
+                    console.error('Failed to load agents:', data.error);
+                }
+            } catch (error) {
+                console.error('Error loading agents:', error);
+            }
+        },
+
+        async loadTwinVersions() {
+            try {
+                const response = await fetch('/api/twin-versions/');
+                const data = await response.json();
+                
+                if (data.success || Array.isArray(data)) {
+                    // Handle both response formats
+                    this.availableTwinVersions = data.success ? data.twin_versions : data;
+                } else {
+                    console.error('Failed to load twin versions:', data.error);
+                }
+            } catch (error) {
+                console.error('Error loading twin versions:', error);
+            }
+        },
+
+        async loadActiveAgent() {
+            try {
+                const response = await fetch('/api/agents/active/');
+                const data = await response.json();
+                
+                if (data.success && data.agent) {
+                    this.activeAgent = data.agent;
+                } else {
+                    console.log('No active agent found');
+                }
+            } catch (error) {
+                console.error('Error loading active agent:', error);
+            }
+        },
+
+        showAgentSelector() {
+            this.loadAgents();
+            this.loadTwinVersions();
+            this.showAgentModal = true;
+        },
+
+        async selectAgent(agentId) {
+            try {
+                // Update active agent using the correct endpoint
+                const response = await fetch(`/api/agents/${agentId}/activate/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({})
+                });
+
+                if (response.ok) {
+                    await this.loadActiveAgent();
+                    this.showAgentModal = false;
+                    this.showNotification('Agent updated successfully', 'success');
+                } else {
+                    this.showNotification('Failed to update agent', 'error');
+                }
+            } catch (error) {
+                console.error('Error selecting agent:', error);
+                this.showNotification('Error updating agent', 'error');
+            }
+        },
+
+        showReplyModal(email) {
+            // Reset compose data
+            this.composeData = {
+                from: this.activeAgent?.email || 'your-email@gmail.com',
+                to: email.from || '',
+                cc: '',
+                bcc: '',
+                subject: email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`,
+                body: '',
+                emailId: email.id
+            };
+            
+            // Set selected values for reply generation
+            this.selectedAgent = this.activeAgent?.id || '';
+            this.selectedTwinVersion = this.activeAgent?.twin_version || '';
+            this.selectedTone = 'professional';
+            
+            // Load agents and twin versions
+            this.loadAgents();
+            this.loadTwinVersions();
+            
+            this.showAgentReplyModal = true;
+        },
+
+        async generateReply() {
+            if (!this.selectedAgent || !this.selectedTwinVersion) {
+                this.showNotification('Please select an agent and twin version', 'error');
+                return;
+            }
+
+            this.isGeneratingReply = true;
+            
+            try {
+                const response = await fetch('/api/email/generate-reply/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({
+                        email_id: this.composeData.emailId,
+                        agent_id: this.selectedAgent,
+                        twin_version_id: this.selectedTwinVersion,
+                        tone: this.selectedTone,
+                        additional_context: this.additionalContext || ''
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update compose data with generated reply
+                    this.composeData.body = data.reply_data.body;
+                    this.composeData.to = data.reply_data.to;
+                    this.composeData.from = data.reply_data.from;
+                    
+                    // Show compose modal with generated content
+                    this.showAgentReplyModal = false;
+                    this.showComposeModal = true;
+                    this.showNotification('Email reply generated successfully!', 'success');
+                } else {
+                    this.showNotification(`Failed to generate reply: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error generating reply:', error);
+                this.showNotification('Error generating reply', 'error');
+            } finally {
+                this.isGeneratingReply = false;
+            }
+        },
+
+        async sendEmail() {
+            if (!this.composeData.to || !this.composeData.subject || !this.composeData.body) {
+                this.showNotification('Please fill in all required fields', 'error');
+                return;
+            }
+
+            this.isSendingEmail = true;
+            
+            try {
+                const response = await fetch('/api/gmail/send/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify(this.composeData)
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.showComposeModal = false;
+                    this.showNotification('Email sent successfully!', 'success');
+                    // Refresh emails to show the sent reply
+                    await this.refreshEmails();
+                } else {
+                    this.showNotification(`Failed to send email: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error sending email:', error);
+                this.showNotification('Error sending email', 'error');
+            } finally {
+                this.isSendingEmail = false;
+            }
+        },
+
+        showNotification(message, type = 'info') {
+            // Simple notification system - you can enhance this
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg text-white ${
+                type === 'success' ? 'bg-green-500' : 
+                type === 'error' ? 'bg-red-500' : 
+                'bg-blue-500'
+            }`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 3000);
+        },
+
+        // Additional helper function for initiating reply from email list
+        initiateReply(emailId) {
+            // Find the email by ID
+            const email = this.emails.find(e => e.id === emailId);
+            if (email) {
+                this.openEmailModal(email);
+            }
+        },
+
+        // Draft saving functionality
+        async saveDraft() {
+            try {
+                const response = await fetch('/api/gmail/drafts/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify(this.composeData)
+                });
+
+                if (response.ok) {
+                    this.showNotification('Draft saved successfully!', 'success');
+                } else {
+                    this.showNotification('Failed to save draft', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving draft:', error);
+                this.showNotification('Error saving draft', 'error');
+            }
+        },
+
+        // Enhanced send email with proper state management
+        async sendEmail() {
+            if (!this.composeData.to || !this.composeData.subject || !this.composeData.body) {
+                this.showNotification('Please fill in all required fields', 'error');
+                return;
+            }
+
+            this.isSending = true;
+            
+            try {
+                const response = await fetch('/api/gmail/send/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify(this.composeData)
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.showComposeModal = false;
+                    this.closeEmailModal(); // Close email modal as well
+                    this.showNotification('Email sent successfully!', 'success');
+                    // Refresh emails to show the sent reply
+                    await this.refreshEmails();
+                } else {
+                    this.showNotification(`Failed to send email: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error sending email:', error);
+                this.showNotification('Error sending email', 'error');
+            } finally {
+                this.isSending = false;
+            }
+        },
+
+        // Add isSending property
+        get isSending() {
+            return this.isGenerating || this.isSendingEmail;
+        }
+    }
+}
+</script>
+{% endblock %}

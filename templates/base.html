@@ -823,10 +823,10 @@
                         }" 
                          x-init="
                             // Get initial auth status from window if available
-                            if (window.lastAuthStatus) {
-                                isAuthenticated = window.lastAuthStatus.isAuthenticated;
-                                username = window.lastAuthStatus.username;
-                            }
+                            window.lastAuthStatus && (
+                                isAuthenticated = window.lastAuthStatus.isAuthenticated,
+                                username = window.lastAuthStatus.username
+                            )
                          " 
                          @auth-update.window="updateFromEvent($event)">
                         <template x-if="!isAuthenticated">

@@ -1,0 +1,416 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{% csrf_token %}
+
+<!-- Email Management Styles -->
+<style>
+/* Force full width and prevent UI shrinking */
+body, html, main, .container, .main-content, .max-w-7xl {
+    max-width: 100vw !important;
+    width: 100% !important;
+}
+
+/* Reset any margin/padding constraints */
+body {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Override specific Tailwind max-width classes */
+.max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl, .max-w-3xl, .max-w-2xl, .max-w-xl, .max-w-lg, .max-w-md, .max-w-sm {
+    max-width: 100vw !important;
+}
+
+/* Ensure main container uses full width */
+.min-h-screen {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    padding: 1rem !important;
+}
+
+/* Override mx-auto centering for this page */
+.mx-auto {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* iPhone-style modal system */
+.modal-backdrop {
+    backdrop-filter: blur(20px);
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.modal-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.modal-handle {
+    width: 48px;
+    height: 6px;
+    background: rgba(156, 163, 175, 0.6);
+    border-radius: 3px;
+    margin: 0 auto;
+}
+
+/* Enhanced email list with tap targets */
+.email-card {
+    border-radius: 16px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+}
+
+.email-card:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+.email-card.selected {
+    border-color: rgba(59, 130, 246, 0.8);
+    background: rgba(59, 130, 246, 0.15);
+    transform: translateY(-1px) scale(1.01);
+}
+
+.email-card.unread {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(99, 102, 241, 0.1));
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.email-card.unread::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(to bottom, #3b82f6, #6366f1);
+    border-radius: 2px 0 0 2px;
+}
+
+/* Tab system for modal */
+.tab-content {
+    min-height: 400px;
+}
+
+.tab-button {
+    position: relative;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab-button.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #3b82f6, #6366f1);
+    border-radius: 2px 2px 0 0;
+}
+
+/* Smooth scrolling */
+.smooth-scroll {
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.smooth-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+/* Glass morphism effects */
+.glass-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+}
+
+/* Button animations */
+.btn-animate {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-animate:active {
+    transform: scale(0.95);
+}
+
+.search-section {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(10px);
+}
+</style>
+
+<!-- Main Email Management App -->
+<div class="min-h-screen w-full p-4" x-data="emailManagementApp()">
+    
+    <!-- Header and Connection Status -->
+    {% include 'email_components/header_section.html' %}
+    
+    <!-- Email Modal (only shows when email is selected) -->
+    {% include 'email_components/email_modal.html' %}
+    
+    <!-- Agent Selector Modal -->
+    {% include 'email_components/agent_selector.html' %}
+    
+</div>
+
+<!-- Email Management JavaScript -->
+<script>
+function emailManagementApp() {
+    return {
+        // State
+        isLoading: false,
+        errorMessage: '',
+        searchQuery: '',
+        emails: [],
+        nextPageToken: null,
+        viewMode: 'detailed',
+        connectionStatus: {
+            connected: {{ has_gmail_connection|yesno:"true,false" }},
+            email: '{{ connected_email|default:"" }}'
+        },
+
+        // Agent and Twin data
+        activeAgent: {
+            id: '{{ agent_id|default:"" }}',
+            name: '{{ agent_name|default:"No Agent Selected" }}',
+            twin_version: '{{ twin_version_name|default:"Default" }}'
+        },
+        availableAgents: [],
+        availableTwinVersions: [],
+        selectedAgent: '',
+        selectedTwinVersion: '',
+        selectedTone: 'professional',
+
+        // Modal states - Clean separation
+        selectedEmail: null,
+        selectedEmailId: null,
+        showEmailModal: false,
+        showAgentSelector: false,
+        
+        // Agent selection state
+        selectedAgentId: null,
+        selectedTwinVersionId: null,
+        
+        // UI state
+        isTransitioning: false,
+        isGenerating: false,
+        isSending: false,
+        
+        // Reply tones
+        replyTones: [
+            { value: 'professional', label: 'Professional', icon: 'fas fa-briefcase' },
+            { value: 'friendly', label: 'Friendly', icon: 'fas fa-smile' },
+            { value: 'formal', label: 'Formal', icon: 'fas fa-user-tie' },
+            { value: 'casual', label: 'Casual', icon: 'fas fa-coffee' }
+        ],
+
+        // Initialize
+        init() {
+            console.log('Initializing clean email management app...');
+            
+            // Clean initial state
+            this.selectedEmail = null;
+            this.selectedEmailId = null;
+            this.showEmailModal = false;
+            
+            // Event listeners for component communication
+            this.setupEventListeners();
+            
+            // Load initial data
+            this.checkConnectionStatus();
+            this.loadActiveAgent();
+            if (this.connectionStatus.connected) {
+                this.loadEmails();
+            }
+            
+            console.log('Clean email app initialized');
+        },
+
+        // Event-driven component communication
+        setupEventListeners() {
+            // Listen for email selection from list component
+            this.$el.addEventListener('email-selected', (event) => {
+                console.log('Main app: email selected event received', event.detail);
+                this.handleEmailSelection(event.detail.email);
+            });
+            
+            // Listen for modal close from modal component
+            this.$el.addEventListener('close-email-modal', () => {
+                console.log('Main app: close modal event received');
+                this.closeEmailModal();
+            });
+        },
+
+        // Clean email selection handler
+        handleEmailSelection(email) {
+            console.log('Handling email selection:', email);
+            
+            if (!email || !email.id) {
+                console.error('Invalid email object:', email);
+                return;
+            }
+            
+            // Don't open modal if loading
+            if (this.isLoading || this.isTransitioning) {
+                console.log('Ignoring email selection - app is busy');
+                return;
+            }
+            
+            // Set selected email and open modal
+            this.selectedEmail = email;
+            this.selectedEmailId = email.id;
+            this.showEmailModal = true;
+            
+            console.log('Email modal should open:', {
+                selectedEmail: this.selectedEmail,
+                showEmailModal: this.showEmailModal,
+                modalCondition: !!(this.showEmailModal && this.selectedEmail && this.selectedEmail.id)
+            });
+            
+            // Prevent background scrolling
+            document.body.style.overflow = 'hidden';
+        },
+        
+        // Clean modal close
+        closeEmailModal() {
+            console.log('Closing email modal');
+            
+            if (this.isTransitioning) return;
+            
+            this.isTransitioning = true;
+            this.showEmailModal = false;
+            
+            // Restore background scrolling
+            document.body.style.overflow = '';
+            
+            setTimeout(() => {
+                this.selectedEmail = null;
+                this.selectedEmailId = null;
+                this.isTransitioning = false;
+            }, 200);
+        },
+
+        // API Methods
+        async checkConnectionStatus() {
+            console.log('Checking connection status');
+        },
+
+        async loadActiveAgent() {
+            console.log('Loading active agent');
+        },
+
+        async loadEmails() {
+            if (this.isLoading) return;
+            
+            this.isLoading = true;
+            this.errorMessage = '';
+            
+            try {
+                console.log('Loading emails...');
+                
+                // Simulating emails for testing
+                this.emails = [
+                    {
+                        id: '1',
+                        from: 'test@example.com',
+                        subject: 'Test Email 1',
+                        snippet: 'This is a test email snippet...',
+                        date: new Date().toISOString(),
+                        is_unread: true,
+                        to: 'you@example.com',
+                        body_text: 'This is the full body of the test email.'
+                    },
+                    {
+                        id: '2',
+                        from: 'another@example.com',
+                        subject: 'Test Email 2',
+                        snippet: 'Another test email snippet...',
+                        date: new Date(Date.now() - 86400000).toISOString(),
+                        is_unread: false,
+                        to: 'you@example.com',
+                        body_text: 'This is another test email body.'
+                    }
+                ];
+                
+                console.log(`Loaded ${this.emails.length} emails`);
+                
+            } catch (error) {
+                console.error('Error loading emails:', error);
+                this.errorMessage = 'Failed to load emails. Please try again.';
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        async refreshEmails() {
+            console.log('Refreshing emails...');
+            this.emails = [];
+            this.nextPageToken = null;
+            await this.loadEmails();
+        },
+
+        async searchEmails() {
+            console.log('Searching emails with query:', this.searchQuery);
+        },
+
+        clearSearch() {
+            this.searchQuery = '';
+            this.refreshEmails();
+        },
+
+        async loadUnreadEmails() {
+            console.log('Loading unread emails...');
+        },
+
+        async loadTodayEmails() {
+            console.log('Loading today\'s emails...');
+        },
+
+        toggleViewMode() {
+            this.viewMode = this.viewMode === 'compact' ? 'detailed' : 'compact';
+            console.log('View mode toggled to:', this.viewMode);
+        },
+
+        // Utility methods
+        formatDate(date) {
+            if (!date) return '';
+            const now = new Date();
+            const emailDate = new Date(date);
+            const diffTime = Math.abs(now - emailDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 1) {
+                return 'Today';
+            } else if (diffDays === 2) {
+                return 'Yesterday';
+            } else if (diffDays <= 7) {
+                return `${diffDays - 1} days ago`;
+            } else {
+                return emailDate.toLocaleDateString();
+            }
+        },
+
+        formatDetailedDate(date) {
+            if (!date) return '';
+            return new Date(date).toLocaleString();
+        }
+    }
+}
+</script>
+
+{% endblock %}
+
+{% endblock %}

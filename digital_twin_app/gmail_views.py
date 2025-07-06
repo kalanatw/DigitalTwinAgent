@@ -46,10 +46,9 @@ def gmail_connect(request):
         # Use exact redirect URI from google_oauth_config.json
         redirect_uri = "http://localhost:8000/email/callback/"
         
-        # Gmail API scopes for reading emails
+        # Gmail API scopes for reading and sending emails
         scopes = [
-            'https://www.googleapis.com/auth/gmail.readonly',
-            'https://www.googleapis.com/auth/gmail.labels',
+            'https://mail.google.com/',  # Full Gmail access including send
             'email',
             'profile'
         ]
@@ -423,4 +422,580 @@ def gmail_list_emails(request):
         return JsonResponse({
             'success': False,
             'error': 'Failed to fetch emails'
+        }, status=500)
+
+
+# Email Reply Generation API Endpoints
+
+@login_required
+@require_http_methods(["POST"])
+def generate_email_reply_api(request):
+    """
+    Generate email reply using selected agent and twin version.
+    
+    POST /api/email/generate-reply/
+    Body: {
+        "email_id": "gmail_message_id",
+        "agent_id": "selected_agent_id", 
+        "twin_version_id": "selected_twin_version_id",
+        "tone": "professional|friendly|formal|casual",
+        "additional_context": "optional additional instructions"
+    }
+    """
+    try:
+        data = json.loads(request.body)
+        email_id = data.get('email_id')
+        agent_id = data.get('agent_id')
+        twin_version_id = data.get('twin_version_id')
+        tone = data.get('tone', 'professional')
+        additional_context = data.get('additional_context', '')
+        
+        if not all([email_id, agent_id, twin_version_id]):
+            return JsonResponse({
+                'success': False,
+                'error': 'Missing required parameters: email_id, agent_id, twin_version_id'
+            }, status=400)
+        
+        # Get user's Gmail connection
+        try:
+            gmail_connection = UserGmailConnection.objects.get(
+                user=request.user,
+                is_active=True
+            )
+        except UserGmailConnection.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Gmail connection not found'
+            }, status=400)
+        
+        # Initialize Gmail service
+        gmail_service = GmailAPIService(
+            access_token=gmail_connection.access_token,
+            refresh_token=gmail_connection.refresh_token
+        )
+        
+        # Get the original email
+        original_email = gmail_service.get_message(email_id)
+        if not original_email:
+            return JsonResponse({
+                'success': False,
+                'error': 'Email not found'
+            }, status=404)
+        
+        # Generate reply using chat API with email-specific system prompt
+        reply_content = generate_email_reply_with_agent(
+            email_content=original_email,
+            agent_id=agent_id,
+            twin_version_id=twin_version_id,
+            tone=tone,
+            additional_context=additional_context,
+            user=request.user
+        )
+        
+        # Prepare reply data
+        reply_data = {
+            'to': original_email.get('from', ''),
+            'subject': f"Re: {original_email.get('subject', '')}" if not original_email.get('subject', '').startswith('Re:') else original_email.get('subject', ''),
+            'body': reply_content,
+            'cc': [],
+            'bcc': [],
+            'from': gmail_connection.email_address
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'reply_data': reply_data,
+            'original_email': {
+                'subject': original_email.get('subject', ''),
+                'from': original_email.get('from', ''),
+                'body': original_email.get('body_text', '') or original_email.get('snippet', ''),
+                'date': original_email.get('date', '')
+            }
+        })
+        
+    except Exception as error:
+        logger.error(f"Error generating email reply: {error}")
+        return JsonResponse({
+            'success': False,
+            'error': str(error)
+        }, status=500)
+
+
+@login_required
+def get_active_agent_api(request):
+    """
+    Get the currently active agent for the user.
+    
+    GET /api/agents/active/
+    """
+    try:
+        from .models import AgentConfiguration
+        
+        active_agent = AgentConfiguration.objects.filter(
+            user=request.user,
+            is_active=True
+        ).first()
+        
+        if active_agent:
+            twin_version_name = 'Default'
+            if hasattr(active_agent, 'twin_version') and active_agent.twin_version:
+                twin_version_name = active_agent.twin_version.name
+            elif hasattr(active_agent, 'current_twin_version'):
+                twin_version_name = getattr(active_agent.current_twin_version, 'name', 'Default')
+            
+            return JsonResponse({
+                'success': True,
+                'agent': {
+                    'id': active_agent.id,
+                    'name': active_agent.name,
+                    'twin_version': twin_version_name,
+                    'personality': getattr(active_agent, 'personality', ''),
+                    'expertise': getattr(active_agent, 'expertise', '')
+                }
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'No active agent found'
+            })
+            
+    except Exception as error:
+        logger.error(f"Error getting active agent: {error}")
+        return JsonResponse({
+            'success': False,
+            'error': str(error)
+        }, status=500)
+
+
+@login_required
+def list_user_agents_api(request):
+    """
+    List all available agents for the user.
+    
+    GET /api/agents/list/
+    """
+    try:
+        from .models import AgentConfiguration
+        
+        agents = AgentConfiguration.objects.filter(user=request.user)
+        
+        agents_data = [{
+            'id': agent.id,
+            'name': agent.name,
+            'personality': getattr(agent, 'personality', ''),
+            'expertise': getattr(agent, 'expertise', ''),
+            'is_active': agent.is_active
+        } for agent in agents]
+        
+        return JsonResponse({
+            'success': True,
+            'agents': agents_data
+        })
+        
+    except Exception as error:
+        logger.error(f"Error listing agents: {error}")
+        return JsonResponse({
+            'success': False,
+            'error': str(error)
+        }, status=500)
+
+
+@login_required
+def list_twin_versions_api(request):
+    """
+    List twin versions for an agent.
+    
+    GET /api/twins/versions/?agent_id=<agent_id>
+    """
+    try:
+        from .models import TwinVersion
+        
+        agent_id = request.GET.get('agent_id')
+        if not agent_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Agent ID required'
+            }, status=400)
+        
+        # Check if TwinVersion model exists and get versions
+        try:
+            versions = TwinVersion.objects.filter(
+                user=request.user  # Assuming TwinVersion has user field
+            )
+            
+            versions_data = [{
+                'id': version.id,
+                'name': version.name,
+                'version': getattr(version, 'version', '1.0'),
+                'description': getattr(version, 'description', '')
+            } for version in versions]
+            
+        except Exception:
+            # If TwinVersion model doesn't exist or has different structure, 
+            # create default versions
+            versions_data = [
+                {'id': 'default', 'name': 'Default', 'version': '1.0', 'description': 'Default version'},
+                {'id': 'enhanced', 'name': 'Enhanced', 'version': '2.0', 'description': 'Enhanced capabilities'},
+                {'id': 'expert', 'name': 'Expert', 'version': '3.0', 'description': 'Expert level responses'}
+            ]
+        
+        return JsonResponse({
+            'success': True,
+            'versions': versions_data
+        })
+        
+    except Exception as error:
+        logger.error(f"Error listing twin versions: {error}")
+        return JsonResponse({
+            'success': False,
+            'error': str(error)
+        }, status=500)
+
+
+def generate_email_reply_with_agent(email_content, agent_id, twin_version_id, tone, additional_context, user):
+    """
+    Generate email reply using the chat API with email-specific system prompt.
+    """
+    try:
+        from .models import AgentConfiguration
+        
+        # Get agent
+        agent = AgentConfiguration.objects.get(id=agent_id, user=user)
+        
+        # Create email-specific system prompt
+        system_prompt = create_email_system_prompt(agent, email_content, tone, additional_context)
+        
+        # Create user message for the chat
+        user_message = f"""
+Please generate an email reply with {tone} tone.
+{f"Additional instructions: {additional_context}" if additional_context else ""}
+
+Make sure to:
+1. Address all points in the original email
+2. Maintain a {tone} tone
+3. Be helpful and actionable
+4. Use proper email etiquette
+"""
+        
+        # Use existing chat service or create a simple implementation
+        reply_content = generate_chat_response(
+            user_message=user_message,
+            system_prompt=system_prompt,
+            agent=agent
+        )
+        
+        return reply_content
+        
+    except Exception as error:
+        logger.error(f"Error in generate_email_reply_with_agent: {error}")
+        raise error
+
+
+def create_email_system_prompt(agent, original_email, tone, additional_context=""):
+    """
+    Create specialized system prompt for email reply generation.
+    """
+    return f"""
+You are {agent.name}, an AI assistant helping to compose professional email replies.
+
+Your characteristics:
+- Personality: {getattr(agent, 'personality', 'Professional and helpful')}
+- Expertise: {getattr(agent, 'expertise', 'General assistance')}
+- Communication style: {tone}
+
+TASK: Generate a professional email reply
+
+ORIGINAL EMAIL CONTEXT:
+From: {original_email.get('from', 'Unknown')}
+Subject: {original_email.get('subject', 'No Subject')}
+Date: {original_email.get('date', 'Unknown')}
+Content: {original_email.get('body_text', '') or original_email.get('snippet', '')}
+
+REPLY GUIDELINES:
+1. Maintain {tone} tone throughout
+2. Address all points raised in original email
+3. Be concise but comprehensive
+4. Use proper email etiquette
+5. Include appropriate greeting and closing
+6. Make response actionable and helpful
+7. Stay true to your personality and expertise
+
+{f"ADDITIONAL CONTEXT: {additional_context}" if additional_context else ""}
+
+Generate only the email body content (no headers like To:, From:, Subject:).
+Start with an appropriate greeting and end with a professional closing.
+"""
+
+
+def generate_chat_response(user_message, system_prompt, agent):
+    """
+    Generate chat response using existing chat service or simple implementation.
+    """
+    try:
+        # Try to use existing chat service
+        from .views import ApiChatView
+        from django.http import HttpRequest
+        import json
+        
+        # Create a mock request for the chat API
+        mock_request = HttpRequest()
+        mock_request.method = 'POST'
+        mock_request.user = agent.user
+        
+        chat_data = {
+            'message': user_message,
+            'system_prompt': system_prompt,
+            'agent_id': agent.id
+        }
+        mock_request._body = json.dumps(chat_data).encode('utf-8')
+        
+        # Use the existing chat view
+        chat_view = ApiChatView()
+        response = chat_view.post(mock_request)
+        
+        if response.status_code == 200:
+            response_data = json.loads(response.content)
+            return response_data.get('response', 'Unable to generate response')
+        else:
+            # Fallback to simple response
+            return generate_simple_email_response(user_message, system_prompt)
+            
+    except Exception as error:
+        logger.error(f"Error using chat service: {error}")
+        return generate_simple_email_response(user_message, system_prompt)
+
+
+def generate_simple_email_response(user_message, system_prompt):
+    """
+    Simple fallback email response generator.
+    """
+    return f"""Dear [Recipient],
+
+Thank you for your email. I have received your message and will review the information you provided.
+
+I will get back to you with a detailed response shortly. In the meantime, please feel free to reach out if you have any urgent questions or concerns.
+
+Best regards,
+[Your Name]
+"""
+
+
+@login_required
+@require_http_methods(["POST"])
+def send_email_api(request):
+    """
+    Send email through Gmail API.
+    
+    POST /api/gmail/send/
+    Body: {
+        "to": "recipient@example.com",
+        "cc": "cc@example.com",  // optional
+        "bcc": "bcc@example.com",  // optional
+        "subject": "Email subject",
+        "body": "Email body content",
+        "from": "sender@example.com"  // optional, will use connected Gmail if not provided
+    }
+    """
+    try:
+        data = json.loads(request.body)
+        to_email = data.get('to')
+        subject = data.get('subject')
+        body = data.get('body')
+        cc = data.get('cc', '')
+        bcc = data.get('bcc', '')
+        from_email = data.get('from', '')
+        
+        if not all([to_email, subject, body]):
+            return JsonResponse({
+                'success': False,
+                'error': 'Missing required fields: to, subject, body'
+            }, status=400)
+        
+        # Get user's Gmail connection
+        try:
+            gmail_connection = UserGmailConnection.objects.get(
+                user=request.user,
+                is_active=True
+            )
+        except UserGmailConnection.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Gmail connection not found'
+            }, status=400)
+        
+        # Initialize Gmail service
+        gmail_service = GmailAPIService(
+            access_token=gmail_connection.access_token,
+            refresh_token=gmail_connection.refresh_token
+        )
+        
+        # Prepare email data
+        email_data = {
+            'to': to_email,
+            'cc': cc if cc else None,
+            'bcc': bcc if bcc else None,
+            'subject': subject,
+            'body': body,
+            'from': from_email or gmail_connection.email_address
+        }
+        
+        # Send email using Gmail service
+        result = gmail_service.send_email(email_data)
+        
+        if result and result.get('id'):
+            return JsonResponse({
+                'success': True,
+                'message': 'Email sent successfully',
+                'email_id': result['id']
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Failed to send email'
+            }, status=500)
+        
+    except Exception as error:
+        logger.error(f"Error sending email: {error}")
+        return JsonResponse({
+            'success': False,
+            'error': str(error)
+        }, status=500)
+
+
+@login_required
+def gmail_reauthorize(request):
+    """
+    Force Gmail re-authorization with updated scopes.
+    
+    Clears existing OAuth tokens and redirects user to Google's
+    OAuth consent screen to re-authorize with expanded permissions.
+    This is necessary when we need additional Gmail API scopes.
+    """
+    try:
+        # Clear existing Gmail connection tokens
+        try:
+            gmail_connection = UserGmailConnection.objects.get(
+                user=request.user,
+                is_active=True
+            )
+            
+            # Optionally revoke old token with Google
+            try:
+                revoke_url = f"https://oauth2.googleapis.com/revoke?token={gmail_connection.access_token}"
+                requests.post(revoke_url, timeout=10)
+                logger.info(f"Revoked old Gmail token for user {request.user.username}")
+            except Exception as revoke_error:
+                logger.warning(f"Failed to revoke old token: {revoke_error}")
+            
+            # Delete the old connection to force fresh OAuth
+            gmail_connection.delete()
+            logger.info(f"Cleared existing Gmail connection for user {request.user.username}")
+            
+        except UserGmailConnection.DoesNotExist:
+            logger.info(f"No existing Gmail connection found for user {request.user.username}")
+        
+        # Get Google OAuth configuration
+        google_config = settings.GOOGLE_OAUTH_CONFIG.get('web', {})
+        client_id = google_config.get('client_id')
+        
+        if not client_id:
+            logger.error("Google OAuth client_id not configured")
+            messages.error(request, 'Gmail OAuth not properly configured')
+            return redirect('/email/')
+        
+        # Use exact redirect URI from google_oauth_config.json
+        redirect_uri = "http://localhost:8000/email/callback/"
+        
+        # Updated Gmail API scopes - using the full Gmail scope for all permissions
+        scopes = [
+            'https://mail.google.com/',  # Full Gmail access including send
+            'email',
+            'profile'
+        ]
+        scope_string = ' '.join(scopes)
+        
+        # Generate state parameter for CSRF protection
+        import secrets
+        state = secrets.token_urlsafe(32)
+        request.session['gmail_oauth_state'] = state
+        request.session['gmail_reauth'] = True  # Mark as re-authorization
+        
+        # Build OAuth authorization URL with consent prompt to force re-authorization
+        auth_params = {
+            'client_id': client_id,
+            'redirect_uri': redirect_uri,
+            'response_type': 'code',
+            'scope': scope_string,
+            'access_type': 'offline',
+            'prompt': 'consent',  # Force consent screen to show updated permissions
+            'state': state
+        }
+        
+        auth_url = (
+            f"https://accounts.google.com/o/oauth2/auth?"
+            f"{'&'.join(f'{k}={v}' for k, v in auth_params.items())}"
+        )
+        
+        logger.info(f"Redirecting user {request.user.username} to Gmail re-authorization")
+        messages.info(request, 'Re-authorizing Gmail with updated permissions...')
+        
+        return redirect(auth_url)
+        
+    except Exception as error:
+        logger.error(f"Error during Gmail re-authorization: {error}")
+        messages.error(request, 'Error starting re-authorization process.')
+        return redirect('/email/')
+
+
+@login_required
+def gmail_check_scope_error(request):
+    """
+    API endpoint to check if Gmail connection has scope issues.
+    
+    Returns:
+        JsonResponse: Information about scope validation and re-auth requirements
+    """
+    try:
+        gmail_connection = UserGmailConnection.objects.get(
+            user=request.user,
+            is_active=True
+        )
+        
+        # Try to validate scopes by making a test API call
+        gmail_service = GmailAPIService(
+            access_token=gmail_connection.access_token,
+            refresh_token=gmail_connection.refresh_token
+        )
+        
+        # Test if we can access Gmail profile (basic read)
+        profile = gmail_service.get_user_profile()
+        if not profile:
+            return JsonResponse({
+                'success': True,
+                'has_scope_issue': True,
+                'error_type': 'read_access',
+                'message': 'Gmail read access is not available. Re-authorization required.'
+            })
+        
+        # For now, we'll assume send scope is the issue if we get this far
+        # A more robust check would involve testing the send endpoint
+        return JsonResponse({
+            'success': True,
+            'has_scope_issue': True,
+            'error_type': 'send_access',
+            'message': 'Gmail send permissions may need updating. Try re-authorization if sending fails.'
+        })
+        
+    except UserGmailConnection.DoesNotExist:
+        return JsonResponse({
+            'success': True,
+            'has_scope_issue': True,
+            'error_type': 'no_connection',
+            'message': 'Gmail not connected. Please connect your Gmail account.'
+        })
+    except Exception as error:
+        logger.error(f"Error checking Gmail scopes: {error}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Failed to check Gmail permissions'
         }, status=500)

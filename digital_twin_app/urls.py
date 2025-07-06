@@ -13,6 +13,7 @@ from . import google_auth_views
 from . import auth_views
 from . import profile_views
 from . import chat_session_views
+from . import gmail_views
 
 urlpatterns = [
     # API endpoints first (more specific)
@@ -66,6 +67,13 @@ urlpatterns = [
     path('api/email/update-response/<str:email_id>/', integrated_email_views.update_email_response, name='gmail_update_response'),
     path('api/email/generate-response/<str:email_id>/', integrated_email_views.generate_email_response, name='gmail_generate_response'),
     path('api/email/create-test-emails/', integrated_email_views.create_test_emails, name='email_create_test'),
+    
+    # Gmail OAuth and API endpoints (following Gmail API standards)
+    path('email/connect/', gmail_views.gmail_connect, name='gmail_connect'),
+    path('email/callback/', gmail_views.gmail_callback, name='gmail_callback'),
+    path('email/disconnect/', gmail_views.gmail_disconnect, name='gmail_disconnect'),
+    path('api/gmail/status/', gmail_views.gmail_connection_status, name='gmail_status'),
+    path('api/gmail/emails/', gmail_views.gmail_list_emails, name='gmail_list_emails'),
     
     # Twin Version API endpoints (User-Centric)
     path('api/twin-versions/', user_centric_document_views.twin_version_list_view, name='twin_version_list'),

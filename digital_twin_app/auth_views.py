@@ -30,8 +30,33 @@ class DocumentView(AuthRequiredTemplateView):
     template_name = 'dms.html'
     
 class EmailView(AuthRequiredTemplateView):
-    """Email automation page view that requires authentication"""
-    template_name = 'email_automation.html'
+    """Email management page view that requires authentication"""
+    template_name = 'email_management.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Check if user has Gmail connection
+        has_connection = False
+        connected_email = ''
+        
+        try:
+            from .models import UserGmailConnection
+            gmail_connection = UserGmailConnection.objects.get(
+                user=self.request.user,
+                is_active=True
+            )
+            has_connection = True
+            connected_email = gmail_connection.email_address
+        except UserGmailConnection.DoesNotExist:
+            pass
+        
+        context.update({
+            'has_gmail_connection': has_connection,
+            'connected_email': connected_email,
+        })
+        
+        return context
     
 class CSVView(AuthRequiredTemplateView):
     """CSV manager page view that requires authentication"""

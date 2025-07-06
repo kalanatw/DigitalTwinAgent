@@ -593,7 +593,7 @@ class UserProfile(models.Model):
         """Add token usage to user's profile"""
         self.total_input_tokens += input_tokens
         self.total_output_tokens += outputTokens
-        self.total_tokens_used += (input_tokens + outputTokens)
+        self.total_tokens_used += (inputTokens + outputTokens)
         self.save()
 
 
@@ -695,3 +695,65 @@ class AgentShare(models.Model):
     
     class Meta:
         unique_together = ['agent', 'shared_with']
+
+
+class UserGmailConnection(models.Model):
+    """
+    Store user's Gmail OAuth tokens and connection information.
+    
+    This model securely stores OAuth2 tokens for Gmail API access
+    and tracks connection status for each user.
+    """
+    user = models.OneToOneField(
+        User, 
+        on_delete=models.CASCADE,
+        related_name='gmail_connection'
+    )
+    access_token = models.TextField(
+        help_text="OAuth2 access token for Gmail API"
+    )
+    refresh_token = models.TextField(
+        blank=True,
+        null=True,
+        help_text="OAuth2 refresh token for token renewal"
+    )
+    token_expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the access token expires"
+    )
+    scopes_granted = models.JSONField(
+        default=list,
+        help_text="List of OAuth scopes granted by user"
+    )
+    email_address = models.EmailField(
+        help_text="Gmail email address for this connection"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether the Gmail connection is active"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'user_gmail_connections'
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['email_address']),
+        ]
+    
+    def __str__(self) -> str:
+        return f"Gmail connection for {self.user.username} ({self.email_address})"
+    
+    def is_token_expired(self) -> bool:
+        """Check if the access token has expired."""
+        if not self.token_expires_at:
+            return False
+        return timezone.now() >= self.token_expires_at
+    
+    def has_required_scopes(self, required_scopes: list) -> bool:
+        """Check if the connection has all required OAuth scopes."""
+        if not self.scopes_granted:
+            return False
+        return all(scope in self.scopes_granted for scope in required_scopes)

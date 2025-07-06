@@ -1,0 +1,515 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+/* Force full width and prevent UI shrinking */
+body, html, main, .container, .main-content, .max-w-7xl {
+    max-width: 100vw !important;
+    width: 100% !important;
+}
+
+/* Reset any margin/padding constraints */
+body {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Override specific Tailwind max-width classes */
+.max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl, .max-w-3xl, .max-w-2xl, .max-w-xl, .max-w-lg, .max-w-md, .max-w-sm {
+    max-width: 100vw !important;
+}
+
+/* Ensure main container uses full width */
+.min-h-screen {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    padding: 1rem !important;
+}
+
+/* Override mx-auto centering for this page */
+.mx-auto {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* Email container improvements */
+.email-container {
+    min-height: 60vh;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.email-item {
+    transition: all 0.2s ease-in-out;
+    border-left: 3px solid transparent;
+}
+
+.email-item:hover {
+    border-left: 3px solid #3b82f6;
+    transform: translateX(2px);
+}
+
+.email-item.unread {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(99, 102, 241, 0.05));
+    border-left: 3px solid #3b82f6;
+}
+
+.email-body-content {
+    max-height: 400px;
+    overflow-y: auto;
+    line-height: 1.6;
+}
+
+.email-body-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.email-body-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.email-body-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+
+.search-section {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(10px);
+}
+</style>
+
+<div class="min-h-screen w-full p-4" x-data="emailManagementApp()">
+    <!-- Header Section -->
+    <div class="glass-strong rounded-2xl p-6 mb-6">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div class="flex-shrink-0">
+                <h2 class="text-3xl font-bold text-white mb-2">
+                    <i class="fab fa-google mr-3 text-red-400"></i>
+                    Gmail Email Management
+                </h2>
+                <p class="text-white/70">Connect your Gmail account and manage your emails with advanced features</p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                {% if has_gmail_connection %}
+                    <button @click="refreshEmails()" 
+                            :disabled="isLoading"
+                            class="btn-secondary px-5 py-3 disabled:opacity-50 flex-shrink-0">
+                        <i class="fas fa-sync-alt mr-2" :class="{ 'fa-spin': isLoading }"></i>
+                        Refresh
+                    </button>
+                    <a href="{% url 'gmail_disconnect' %}" 
+                       class="btn-danger px-5 py-3 flex-shrink-0"
+                       onclick="return confirm('Are you sure you want to disconnect Gmail?')">
+                        <i class="fas fa-unlink mr-2"></i>
+                        Disconnect
+                    </a>
+                {% else %}
+                    <a href="{% url 'gmail_connect' %}" 
+                       class="btn-primary px-6 py-3 flex-shrink-0">
+                        <i class="fab fa-google mr-2"></i>
+                        Connect Gmail
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Connection Status -->
+        <div class="mt-6 p-4 rounded-xl" :class="connectionStatus.connected ? 'bg-green-500/20 border border-green-500/30' : 'bg-yellow-500/20 border border-yellow-500/30'">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0">
+                    <i class="fas text-xl" :class="connectionStatus.connected ? 'fa-check-circle text-green-400' : 'fa-exclamation-triangle text-yellow-400'"></i>
+                </div>
+                <div>
+                    <span class="text-white font-semibold text-lg">
+                        <span x-text="connectionStatus.connected ? 'Connected to Gmail' : 'Gmail Not Connected'"></span>
+                    </span>
+                    <div x-show="connectionStatus.connected && connectionStatus.email" class="text-white/70 text-sm mt-1">
+                        Account: <span x-text="connectionStatus.email" class="font-mono"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Section -->
+    <div x-show="connectionStatus.connected" class="search-section glass-strong rounded-2xl p-6 mb-6">
+        <div class="flex items-center gap-3 mb-4">
+            <i class="fas fa-search text-blue-400 text-xl"></i>
+            <h3 class="text-xl font-semibold text-white">Email Search & Filters</h3>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div class="lg:col-span-2">
+                <input type="text" 
+                       x-model="searchQuery" 
+                       @keyup.enter="searchEmails()"
+                       placeholder="Search emails (e.g., from:example@gmail.com, subject:important, is:unread)"
+                       class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-blue-400 focus:bg-white/20 transition-all">
+            </div>
+            <div class="flex gap-2">
+                <button @click="searchEmails()" 
+                        :disabled="isLoading"
+                        class="btn-primary px-6 py-3 disabled:opacity-50 flex-1">
+                    <i class="fas fa-search mr-2"></i>
+                    Search
+                </button>
+                <button @click="clearSearch()" 
+                        :disabled="isLoading"
+                        class="btn-secondary px-4 py-3 disabled:opacity-50">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="flex gap-2">
+                <button @click="loadUnreadEmails()" 
+                        :disabled="isLoading"
+                        class="btn-info px-4 py-3 disabled:opacity-50 flex-1">
+                    <i class="fas fa-envelope mr-2"></i>
+                    Unread
+                </button>
+                <button @click="loadTodayEmails()" 
+                        :disabled="isLoading"
+                        class="btn-warning px-4 py-3 disabled:opacity-50 flex-1">
+                    <i class="fas fa-calendar-day mr-2"></i>
+                    Today
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email List Section -->
+    <div x-show="connectionStatus.connected" class="glass-strong rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-inbox text-blue-400 text-xl"></i>
+                <h3 class="text-xl font-semibold text-white">Your Emails</h3>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-sm text-white/70">
+                    <span x-text="emails.length"></span> emails loaded
+                    <span x-show="nextPageToken" class="text-blue-400">(more available)</span>
+                </div>
+                <div class="flex gap-2">
+                    <button @click="toggleViewMode()" 
+                            class="btn-ghost px-3 py-2 text-sm">
+                        <i class="fas" :class="viewMode === 'compact' ? 'fa-list' : 'fa-th-list'" class="mr-1"></i>
+                        <span x-text="viewMode === 'compact' ? 'Detailed' : 'Compact'"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div x-show="isLoading" class="flex items-center justify-center py-12">
+            <div class="flex flex-col items-center gap-4 text-white/70">
+                <div class="w-12 h-12 border-4 border-blue-400/30 border-t-blue-400 rounded-full animate-spin"></div>
+                <span class="text-lg">Loading emails...</span>
+            </div>
+        </div>
+
+        <!-- Error Message -->
+        <div x-show="errorMessage" class="bg-red-500/20 border border-red-500/30 rounded-lg p-4 mb-6">
+            <div class="flex items-start gap-3 text-red-400">
+                <i class="fas fa-exclamation-circle text-xl mt-1"></i>
+                <div>
+                    <div class="font-semibold">Error</div>
+                    <div x-text="errorMessage" class="text-sm mt-1"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Email List -->
+        <div x-show="emails.length > 0 && !isLoading" class="email-container">
+            <div class="space-y-3">
+                <template x-for="email in emails" :key="email.id">
+                    <div class="email-item bg-white/5 border border-white/10 rounded-xl p-5 hover:bg-white/10 transition-all cursor-pointer"
+                         :class="{ 'unread': email.is_unread }"
+                         @click="toggleEmailDetail(email)">
+                        
+                        <!-- Email Header -->
+                        <div class="flex items-start justify-between gap-4 mb-3">
+                            <div class="flex items-start gap-4 flex-1 min-w-0">
+                                <!-- Unread indicator -->
+                                <div class="flex-shrink-0 mt-2">
+                                    <div class="w-3 h-3 rounded-full" 
+                                         :class="email.is_unread ? 'bg-blue-400 shadow-lg shadow-blue-400/50' : 'bg-gray-600'"></div>
+                                </div>
+                                
+                                <!-- Email info -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-3 mb-2">
+                                        <span class="text-white font-semibold truncate max-w-md" x-text="email.from"></span>
+                                        <span class="text-white/50 text-sm whitespace-nowrap" x-text="formatDate(email.date)"></span>
+                                    </div>
+                                    <h4 class="text-white font-semibold mb-2 text-lg" 
+                                        :class="email.is_unread ? 'text-blue-100' : 'text-white/90'"
+                                        x-text="email.subject || 'No Subject'"></h4>
+                                    <p class="text-white/70 text-sm leading-relaxed" 
+                                       :class="viewMode === 'compact' ? 'line-clamp-1' : 'line-clamp-2'"
+                                       x-text="email.snippet"></p>
+                                </div>
+                            </div>
+                            
+                            <!-- Actions -->
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <div x-show="email.is_unread" class="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full border border-blue-500/30">
+                                    NEW
+                                </div>
+                                <i class="fas fa-chevron-down text-white/50 transform transition-transform text-lg"
+                                   :class="{ 'rotate-180': email.showDetail }"></i>
+                            </div>
+                        </div>
+                        
+                        <!-- Email Detail -->
+                        <div x-show="email.showDetail" 
+                             x-transition:enter="transition ease-out duration-300"
+                             x-transition:enter-start="opacity-0 max-h-0"
+                             x-transition:enter-end="opacity-100 max-h-96"
+                             x-transition:leave="transition ease-in duration-200"
+                             x-transition:leave-start="opacity-100 max-h-96"
+                             x-transition:leave-end="opacity-0 max-h-0"
+                             class="mt-6 pt-6 border-t border-white/10 overflow-hidden">
+                            
+                            <!-- Email Headers -->
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                                <div class="space-y-3">
+                                    <div class="flex">
+                                        <span class="text-white/50 w-16 flex-shrink-0">From:</span>
+                                        <span class="text-white font-mono text-sm" x-text="email.from"></span>
+                                    </div>
+                                    <div class="flex">
+                                        <span class="text-white/50 w-16 flex-shrink-0">To:</span>
+                                        <span class="text-white font-mono text-sm" x-text="email.to"></span>
+                                    </div>
+                                </div>
+                                <div class="space-y-3">
+                                    <div class="flex">
+                                        <span class="text-white/50 w-20 flex-shrink-0">Date:</span>
+                                        <span class="text-white text-sm" x-text="formatDetailedDate(email.date)"></span>
+                                    </div>
+                                    <div class="flex">
+                                        <span class="text-white/50 w-20 flex-shrink-0">Thread:</span>
+                                        <span class="text-white/70 font-mono text-xs" x-text="email.thread_id"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Email Body -->
+                            <div class="bg-white/5 rounded-lg p-4 border border-white/10">
+                                <div class="email-body-content text-white/90 whitespace-pre-wrap text-sm leading-relaxed" 
+                                     x-html="formatEmailBody(email.body_html || email.body_text || email.snippet)"></div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- No Emails Message -->
+        <div x-show="emails.length === 0 && !isLoading && !errorMessage" class="text-center py-12">
+            <div class="flex flex-col items-center gap-4">
+                <i class="fas fa-inbox text-6xl text-white/20"></i>
+                <div>
+                    <p class="text-white/70 text-lg font-medium">No emails found</p>
+                    <p class="text-white/50 text-sm mt-2">Try connecting your Gmail account or adjusting your search criteria</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Load More Button -->
+        <div x-show="nextPageToken && !isLoading" class="text-center mt-8">
+            <button @click="loadMoreEmails()" 
+                    class="btn-secondary px-8 py-4 text-lg">
+                <i class="fas fa-plus mr-3"></i>
+                Load More Emails
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function emailManagementApp() {
+    return {
+        // State
+        isLoading: false,
+        errorMessage: '',
+        searchQuery: '',
+        emails: [],
+        nextPageToken: null,
+        viewMode: 'detailed', // 'compact' or 'detailed'
+        connectionStatus: {
+            connected: {{ has_gmail_connection|yesno:"true,false" }},
+            email: '{{ connected_email|default:"" }}'
+        },
+
+        // Initialize
+        init() {
+            this.checkConnectionStatus();
+            if (this.connectionStatus.connected) {
+                this.loadEmails();
+            }
+        },
+
+        // Check Gmail connection status
+        async checkConnectionStatus() {
+            try {
+                const response = await fetch('/api/gmail/status/');
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.connectionStatus = {
+                        connected: data.connected,
+                        email: data.email || '',
+                        scopes: data.scopes || [],
+                        tokenExpired: data.token_expired || false
+                    };
+                }
+            } catch (error) {
+                console.error('Error checking connection status:', error);
+            }
+        },
+
+        // Load emails
+        async loadEmails(pageToken = null) {
+            this.isLoading = true;
+            this.errorMessage = '';
+
+            try {
+                const params = new URLSearchParams({
+                    max_results: '20',
+                    ...(this.searchQuery && { query: this.searchQuery }),
+                    ...(pageToken && { page_token: pageToken })
+                });
+
+                const response = await fetch(`/api/gmail/emails/?${params}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    if (pageToken) {
+                        this.emails.push(...data.data.emails);
+                    } else {
+                        this.emails = data.data.emails;
+                    }
+                    this.nextPageToken = data.data.next_page_token;
+                } else {
+                    this.errorMessage = data.error || 'Failed to load emails';
+                    if (data.error === 'Gmail not connected') {
+                        this.connectionStatus.connected = false;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading emails:', error);
+                this.errorMessage = 'Network error loading emails';
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        // Quick filter functions
+        async loadUnreadEmails() {
+            this.searchQuery = 'is:unread';
+            this.nextPageToken = null;
+            await this.loadEmails();
+        },
+
+        async loadTodayEmails() {
+            const today = new Date().toISOString().split('T')[0];
+            this.searchQuery = `after:${today}`;
+            this.nextPageToken = null;
+            await this.loadEmails();
+        },
+
+        // Refresh emails
+        async refreshEmails() {
+            this.nextPageToken = null;
+            await this.loadEmails();
+        },
+
+        // Search emails
+        async searchEmails() {
+            this.nextPageToken = null;
+            await this.loadEmails();
+        },
+
+        // Clear search
+        async clearSearch() {
+            this.searchQuery = '';
+            this.nextPageToken = null;
+            await this.loadEmails();
+        },
+
+        // Load more emails
+        async loadMoreEmails() {
+            if (this.nextPageToken) {
+                await this.loadEmails(this.nextPageToken);
+            }
+        },
+
+        // Toggle view mode
+        toggleViewMode() {
+            this.viewMode = this.viewMode === 'compact' ? 'detailed' : 'compact';
+        },
+
+        // Toggle email detail
+        toggleEmailDetail(email) {
+            email.showDetail = !email.showDetail;
+        },
+
+        // Format date for display
+        formatDate(dateString) {
+            try {
+                const date = new Date(dateString);
+                const now = new Date();
+                const diffMs = now - date;
+                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                const diffDays = Math.floor(diffHours / 24);
+
+                if (diffHours < 1) {
+                    return 'Just now';
+                } else if (diffHours < 24) {
+                    return `${diffHours}h ago`;
+                } else if (diffDays < 7) {
+                    return `${diffDays}d ago`;
+                } else {
+                    return date.toLocaleDateString();
+                }
+            } catch (error) {
+                return dateString;
+            }
+        },
+
+        // Format detailed date
+        formatDetailedDate(dateString) {
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleString();
+            } catch (error) {
+                return dateString;
+            }
+        },
+
+        // Format email body
+        formatEmailBody(body) {
+            if (!body) return 'No content available';
+            
+            // Basic HTML sanitization and formatting
+            let formatted = body
+                .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove scripts
+                .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '') // Remove styles
+                .replace(/style="[^"]*"/gi, '') // Remove inline styles
+                .replace(/class="[^"]*"/gi, ''); // Remove classes
+            
+            // If it's too long, truncate it
+            if (formatted.length > 2000) {
+                formatted = formatted.substring(0, 2000) + '...';
+            }
+            
+            return formatted;
+        }
+    }
+}
+</script>
+{% endblock %}

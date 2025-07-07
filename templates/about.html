@@ -110,6 +110,49 @@
         </div>
     </div>
 
+    <!-- System Architecture Section -->
+    <div class="theme-card rounded-2xl p-8 mb-8">
+        <h2 class="text-3xl font-bold theme-text-primary mb-6 text-center">System Architecture</h2>
+        <div class="text-center">
+            <p class="theme-text-secondary text-lg mb-6 max-w-2xl mx-auto">
+                Explore the technical architecture behind our Digital Twin Email Management System. 
+                Discover how our components work together to deliver intelligent email automation.
+            </p>
+            
+            <a href="{% url 'architecture' %}" 
+               class="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
+                <i class="fas fa-sitemap mr-3 text-xl"></i>
+                <div class="text-left">
+                    <div class="text-lg">View System Architecture</div>
+                    <div class="text-sm opacity-90">Interactive technical overview</div>
+                </div>
+            </a>
+            
+            <div class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+                    <i class="fas fa-desktop text-blue-500 text-xl mb-2"></i>
+                    <div class="text-sm font-medium theme-text-primary">Frontend</div>
+                    <div class="text-xs theme-text-secondary">AlpineJS & Django</div>
+                </div>
+                <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
+                    <i class="fas fa-server text-green-500 text-xl mb-2"></i>
+                    <div class="text-sm font-medium theme-text-primary">Backend</div>
+                    <div class="text-xs theme-text-secondary">Django Framework</div>
+                </div>
+                <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3">
+                    <i class="fas fa-database text-purple-500 text-xl mb-2"></i>
+                    <div class="text-sm font-medium theme-text-primary">Database</div>
+                    <div class="text-xs theme-text-secondary">PostgreSQL & Redis</div>
+                </div>
+                <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3">
+                    <i class="fas fa-cloud text-yellow-500 text-xl mb-2"></i>
+                    <div class="text-sm font-medium theme-text-primary">APIs</div>
+                    <div class="text-xs theme-text-secondary">Gmail & OpenAI</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- How It Works -->
     <div class="theme-card rounded-2xl p-8 mb-8">
         <h2 class="text-3xl font-bold theme-text-primary mb-8 text-center">How It Works</h2>

@@ -1,0 +1,414 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
+    <!-- Architecture Visualization App -->
+    <div x-data="architectureApp()" class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <div class="glass-strong rounded-2xl p-8 mb-8">
+            <div class="text-center">
+                <h1 class="text-4xl font-bold text-white mb-4">
+                    <i class="fas fa-sitemap mr-3 text-blue-400"></i>
+                    Digital Twin System Architecture
+                </h1>
+                <p class="text-white/70 text-lg max-w-3xl mx-auto">
+                    Interactive visualization of our email management system's technical architecture. 
+                    Click on components to explore their details and data flows.
+                </p>
+            </div>
+            
+            <!-- Layer Controls -->
+            <div class="mt-8 flex flex-wrap justify-center gap-3">
+                <button @click="toggleLayer('all')" 
+                        :class="activeLayer === 'all' ? 'btn-primary' : 'btn-secondary'"
+                        class="px-4 py-2 rounded-lg transition-all">
+                    <i class="fas fa-layer-group mr-2"></i>All Layers
+                </button>
+                <button @click="toggleLayer('frontend')" 
+                        :class="activeLayer === 'frontend' ? 'btn-primary' : 'btn-secondary'"
+                        class="px-4 py-2 rounded-lg transition-all">
+                    <i class="fas fa-desktop mr-2"></i>Frontend
+                </button>
+                <button @click="toggleLayer('backend')" 
+                        :class="activeLayer === 'backend' ? 'btn-primary' : 'btn-secondary'"
+                        class="px-4 py-2 rounded-lg transition-all">
+                    <i class="fas fa-server mr-2"></i>Backend
+                </button>
+                <button @click="toggleLayer('data')" 
+                        :class="activeLayer === 'data' ? 'btn-primary' : 'btn-secondary'"
+                        class="px-4 py-2 rounded-lg transition-all">
+                    <i class="fas fa-database mr-2"></i>Data Layer
+                </button>
+                <button @click="toggleLayer('external')" 
+                        :class="activeLayer === 'external' ? 'btn-primary' : 'btn-secondary'"
+                        class="px-4 py-2 rounded-lg transition-all">
+                    <i class="fas fa-cloud mr-2"></i>External APIs
+                </button>
+            </div>
+        </div>
+
+        <!-- Architecture Diagram -->
+        <div class="glass-strong rounded-2xl p-8 mb-8">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+                
+                <!-- Frontend Layer -->
+                <div x-show="activeLayer === 'all' || activeLayer === 'frontend'" 
+                     x-transition 
+                     class="space-y-4">
+                    <h3 class="text-xl font-semibold text-white mb-4 text-center">
+                        <i class="fas fa-desktop mr-2 text-blue-400"></i>Frontend Layer
+                    </h3>
+                    {% for component in frontend_components %}
+                    <div @click="showComponentDetails('{{ component.id }}')" 
+                         class="architecture-component frontend-component cursor-pointer">
+                        <div class="component-icon">{{ component.icon }}</div>
+                        <div class="component-title">{{ component.name }}</div>
+                        <div class="component-subtitle">{{ component.description|truncatechars:40 }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Backend Layer -->
+                <div x-show="activeLayer === 'all' || activeLayer === 'backend'" 
+                     x-transition 
+                     class="space-y-4">
+                    <h3 class="text-xl font-semibold text-white mb-4 text-center">
+                        <i class="fas fa-server mr-2 text-green-400"></i>Backend Layer
+                    </h3>
+                    {% for component in backend_components %}
+                    <div @click="showComponentDetails('{{ component.id }}')" 
+                         class="architecture-component backend-component cursor-pointer">
+                        <div class="component-icon">{{ component.icon }}</div>
+                        <div class="component-title">{{ component.name }}</div>
+                        <div class="component-subtitle">{{ component.description|truncatechars:40 }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Data Layer -->
+                <div x-show="activeLayer === 'all' || activeLayer === 'data'" 
+                     x-transition 
+                     class="space-y-4">
+                    <h3 class="text-xl font-semibold text-white mb-4 text-center">
+                        <i class="fas fa-database mr-2 text-purple-400"></i>Data Layer
+                    </h3>
+                    {% for component in data_components %}
+                    <div @click="showComponentDetails('{{ component.id }}')" 
+                         class="architecture-component data-component cursor-pointer">
+                        <div class="component-icon">{{ component.icon }}</div>
+                        <div class="component-title">{{ component.name }}</div>
+                        <div class="component-subtitle">{{ component.description|truncatechars:40 }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- External Services -->
+                <div x-show="activeLayer === 'all' || activeLayer === 'external'" 
+                     x-transition 
+                     class="space-y-4">
+                    <h3 class="text-xl font-semibold text-white mb-4 text-center">
+                        <i class="fas fa-cloud mr-2 text-yellow-400"></i>External APIs
+                    </h3>
+                    {% for component in external_components %}
+                    <div @click="showComponentDetails('{{ component.id }}')" 
+                         class="architecture-component external-component cursor-pointer">
+                        <div class="component-icon">{{ component.icon }}</div>
+                        <div class="component-title">{{ component.name }}</div>
+                        <div class="component-subtitle">{{ component.description|truncatechars:40 }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Flow Visualization -->
+        <div class="glass-strong rounded-2xl p-8 mb-8">
+            <h3 class="text-2xl font-semibold text-white mb-6 text-center">
+                <i class="fas fa-route mr-3 text-cyan-400"></i>
+                System Data Flows
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {% for flow in data_flows %}
+                <div @click="showDataFlow('{{ flow.id }}')" 
+                     class="data-flow-card cursor-pointer">
+                    <h4 class="text-lg font-semibold text-white mb-3">{{ flow.name }}</h4>
+                    <div class="space-y-2">
+                        {% for step in flow.steps %}
+                        <div class="flex items-center text-white/70 text-sm">
+                            <div class="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs font-bold text-white mr-3">
+                                {{ forloop.counter }}
+                            </div>
+                            {{ step }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Technology Stack Breakdown -->
+        <div class="glass-strong rounded-2xl p-8">
+            <h3 class="text-2xl font-semibold text-white mb-6 text-center">
+                <i class="fas fa-code mr-3 text-green-400"></i>
+                Technology Stack
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                
+                <!-- Frontend Technologies -->
+                <div class="tech-stack-section">
+                    <h4 class="text-lg font-semibold text-blue-400 mb-4">Frontend</h4>
+                    <div class="space-y-2">
+                        <div class="tech-item">AlpineJS 3.x</div>
+                        <div class="tech-item">Django Templates</div>
+                        <div class="tech-item">CSS3 + Animations</div>
+                        <div class="tech-item">Responsive Design</div>
+                    </div>
+                </div>
+
+                <!-- Backend Technologies -->
+                <div class="tech-stack-section">
+                    <h4 class="text-lg font-semibold text-green-400 mb-4">Backend</h4>
+                    <div class="space-y-2">
+                        <div class="tech-item">Django 5.2.1</div>
+                        <div class="tech-item">Django ORM</div>
+                        <div class="tech-item">Django REST Framework</div>
+                        <div class="tech-item">Class-Based Views</div>
+                    </div>
+                </div>
+
+                <!-- Database Technologies -->
+                <div class="tech-stack-section">
+                    <h4 class="text-lg font-semibold text-purple-400 mb-4">Database</h4>
+                    <div class="space-y-2">
+                        <div class="tech-item">PostgreSQL</div>
+                        <div class="tech-item">Redis Cache</div>
+                        <div class="tech-item">Django Migrations</div>
+                        <div class="tech-item">Session Storage</div>
+                    </div>
+                </div>
+
+                <!-- External APIs -->
+                <div class="tech-stack-section">
+                    <h4 class="text-lg font-semibold text-yellow-400 mb-4">External APIs</h4>
+                    <div class="space-y-2">
+                        <div class="tech-item">Gmail API</div>
+                        <div class="tech-item">OpenAI API</div>
+                        <div class="tech-item">OAuth 2.0</div>
+                        <div class="tech-item">REST APIs</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Component Details Modal -->
+        <div x-show="showModal" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+             @click.self="closeModal()">
+            <div x-show="showModal"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95"
+                 class="bg-white/95 backdrop-blur-xl rounded-2xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                
+                <!-- Modal Header -->
+                <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center">
+                        <span x-text="selectedComponent.icon" class="text-3xl mr-3"></span>
+                        <h3 x-text="selectedComponent.name" class="text-2xl font-bold text-gray-800"></h3>
+                    </div>
+                    <button @click="closeModal()" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+
+                <!-- Component Details -->
+                <div class="space-y-6">
+                    <p x-text="selectedComponent.description" class="text-gray-600 text-lg"></p>
+                    
+                    <!-- Technologies -->
+                    <div x-show="selectedComponent.technologies">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-3">Technologies Used</h4>
+                        <div class="flex flex-wrap gap-2">
+                            <template x-for="tech in selectedComponent.technologies || []">
+                                <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium" x-text="tech"></span>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Code Example -->
+                    <div x-show="selectedComponent.code_example">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-3">Code Example</h4>
+                        <pre class="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto"><code x-text="selectedComponent.code_example"></code></pre>
+                    </div>
+
+                    <!-- Features -->
+                    <div x-show="selectedComponent.features">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-3">Key Features</h4>
+                        <ul class="list-disc list-inside space-y-1 text-gray-600">
+                            <template x-for="feature in selectedComponent.features || []">
+                                <li x-text="feature"></li>
+                            </template>
+                        </ul>
+                    </div>
+
+                    <!-- Files -->
+                    <div x-show="selectedComponent.files">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-3">Related Files</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            <template x-for="file in selectedComponent.files || []">
+                                <div class="bg-gray-100 px-3 py-2 rounded text-sm font-mono" x-text="file"></div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Architecture Styles -->
+<style>
+.architecture-component {
+    @apply bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-4 text-center transition-all duration-300 hover:bg-white/20 hover:border-white/40 hover:transform hover:scale-105;
+}
+
+.component-icon {
+    @apply text-3xl mb-2;
+}
+
+.component-title {
+    @apply text-white font-semibold text-sm mb-1;
+}
+
+.component-subtitle {
+    @apply text-white/70 text-xs;
+}
+
+.frontend-component {
+    @apply border-blue-400/30 hover:border-blue-400/60;
+}
+
+.backend-component {
+    @apply border-green-400/30 hover:border-green-400/60;
+}
+
+.data-component {
+    @apply border-purple-400/30 hover:border-purple-400/60;
+}
+
+.external-component {
+    @apply border-yellow-400/30 hover:border-yellow-400/60;
+}
+
+.data-flow-card {
+    @apply bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-6 transition-all duration-300 hover:bg-white/20 hover:border-cyan-400/60 hover:transform hover:scale-105;
+}
+
+.tech-stack-section {
+    @apply bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6;
+}
+
+.tech-item {
+    @apply text-white/80 text-sm bg-white/10 px-3 py-1 rounded-lg;
+}
+
+.glass-strong {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+</style>
+
+<!-- Architecture JavaScript -->
+<script>
+function architectureApp() {
+    return {
+        activeLayer: 'all',
+        showModal: false,
+        selectedComponent: {},
+        
+        // Component data from Django context
+        components: {
+            {% for component in frontend_components %}
+            '{{ component.id }}': {
+                id: '{{ component.id }}',
+                name: '{{ component.name }}',
+                icon: '{{ component.icon }}',
+                description: '{{ component.description|escapejs }}',
+                technologies: {{ component.technologies|safe }},
+                code_example: '{{ component.code_example|escapejs }}',
+                files: {{ component.files|default:"[]"|safe }},
+                features: {{ component.features|default:"[]"|safe }}
+            },
+            {% endfor %}
+            {% for component in backend_components %}
+            '{{ component.id }}': {
+                id: '{{ component.id }}',
+                name: '{{ component.name }}',
+                icon: '{{ component.icon }}',
+                description: '{{ component.description|escapejs }}',
+                technologies: {{ component.technologies|safe }},
+                code_example: '{{ component.code_example|escapejs }}',
+                files: {{ component.files|default:"[]"|safe }},
+                features: {{ component.features|default:"[]"|safe }}
+            },
+            {% endfor %}
+            {% for component in data_components %}
+            '{{ component.id }}': {
+                id: '{{ component.id }}',
+                name: '{{ component.name }}',
+                icon: '{{ component.icon }}',
+                description: '{{ component.description|escapejs }}',
+                technologies: {{ component.technologies|safe }},
+                code_example: '{{ component.code_example|default:""|escapejs }}',
+                models: {{ component.models|default:"[]"|safe }},
+                use_cases: {{ component.use_cases|default:"[]"|safe }}
+            },
+            {% endfor %}
+            {% for component in external_components %}
+            '{{ component.id }}': {
+                id: '{{ component.id }}',
+                name: '{{ component.name }}',
+                icon: '{{ component.icon }}',
+                description: '{{ component.description|escapejs }}',
+                technologies: {{ component.technologies|safe }},
+                capabilities: {{ component.capabilities|default:"[]"|safe }},
+                models: {{ component.models|default:"[]"|safe }}
+            },
+            {% endfor %}
+        },
+        
+        toggleLayer(layer) {
+            this.activeLayer = layer;
+        },
+        
+        showComponentDetails(componentId) {
+            this.selectedComponent = this.components[componentId] || {};
+            this.showModal = true;
+        },
+        
+        showDataFlow(flowId) {
+            // Future enhancement: show animated data flow
+            console.log('Show data flow:', flowId);
+        },
+        
+        closeModal() {
+            this.showModal = false;
+            this.selectedComponent = {};
+        }
+    }
+}
+</script>
+{% endblock %}

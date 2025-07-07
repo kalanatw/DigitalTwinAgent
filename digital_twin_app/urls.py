@@ -135,6 +135,7 @@ urlpatterns = [
     path('profile/', profile_views.profile_view, name='profile_page'),
     path('profile/resources/', profile_views.profile_resources_view, name='profile_resources_page'),
     path('about/', auth_views.AuthRequiredTemplateView.as_view(template_name='about.html'), name='about'),
+    path('architecture/', auth_views.ArchitectureView.as_view(), name='architecture'),
     path('settings/', auth_views.SettingsView.as_view(), name='settings'),
     path('dms/', auth_views.DocumentView.as_view(), name='dms'),
     path('email/', auth_views.EmailView.as_view(), name='email_automation'),
